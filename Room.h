@@ -7,15 +7,23 @@
 
 
 #include <vector>
+#include <set>
 #include "Player.h"
 
 class Room
 {
+    /*
 public:
-    void add(boost::shared_ptr<Player> player);
-
+    Room(size_t id, size_t max_players, std::string password);
+    void join(boost::shared_ptr<Player> player);
+    void SendToAllExcept(const std::string& message, size_t playerID);
 private:
-    std::vector< boost::shared_ptr<Player> > players;
+    size_t id;
+    size_t max_players;
+    std::string password;
+    std::string name;
+    std::set< boost::shared_ptr<Player> > players;
+     */
 };
 
 

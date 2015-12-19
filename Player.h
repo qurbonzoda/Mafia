@@ -6,6 +6,7 @@
 #define MAFIA_PLAYER_H
 
 #include "network.h"
+#include "Room.h"
 
 enum Character
 {
@@ -14,12 +15,19 @@ enum Character
 
 class Player
 {
+    /*
 public:
-    Player(boost::shared_ptr<Connection> connection);
+    Player(size_t id);
+    size_t getId();
+    boost::shared_ptr< Room > getRoom();
+    bool setRoom(boost::shared_ptr<Room> room);
+    ~Player();
 private:
     Character character;
-    boost::shared_ptr<Connection> main_connection;
+    size_t id;
+    std::string login;
+    boost::shared_ptr<Room> room;
+     */
 };
-
 
 #endif //MAFIA_PLAYER_H

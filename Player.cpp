@@ -3,7 +3,7 @@
 //
 
 #include "Player.h"
-
-Player::Player(boost::shared_ptr<Connection> connection) : main_connection(connection)
+/*
+Player::Player(size_t id) : id(id)
 {
-}
+}*/

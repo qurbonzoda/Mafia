@@ -1,9 +1,9 @@
 //
 // Created by qurbonzoda on 23.11.15.
 //
-
+/*
 #include "Room.h"
-void Room::add(boost::shared_ptr<Player> player)
+
+Room::Room(size_t id, size_t max_players, std::string password) : id(id), max_players(max_players), password(password)
 {
-    players.push_back(player);
-}
+}*/

@@ -61,6 +61,7 @@ void Hive::Reset()
 
 //-----------------------------------------------------------------------------
 
+
 Acceptor::Acceptor( boost::shared_ptr< Hive > hive )
         : m_hive( hive ), m_acceptor( hive->GetService() ), m_io_strand( hive->GetService() ), m_timer( hive->GetService() ), m_timer_interval( 1000 ), m_error_state( 0 )
 {
@@ -200,7 +201,8 @@ void Connection::StartSend()
 {
     if( !m_pending_sends.empty() )
     {
-        boost::asio::async_write( m_socket, boost::asio::buffer( m_pending_sends.front() ), m_io_strand.wrap( boost::bind( &Connection::HandleSend, shared_from_this(), boost::asio::placeholders::error, m_pending_sends.begin() ) ) );
+        boost::asio::async_write( m_socket, boost::asio::buffer( m_pending_sends.front() ),
+                                  m_io_strand.wrap( boost::bind( &Connection::HandleSend, shared_from_this(), boost::asio::placeholders::error, m_pending_sends.begin() ) ) );
     }
 }
 
@@ -390,3 +392,84 @@ bool Connection::HasError()
 {
     return ( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 1 ) == 1 );
 }
+
+
+//-----------------------------------------------------------------------------
+/*
+UdpConnection::UdpConnection(boost::shared_ptr<Hive> hive, std::string ip_address, uint16_t port) : m_socket(hive->GetService())
+{
+    m_hive = hive;
+    Bind(ip_address, port);
+}
+void UdpConnection::Bind(std::string const & ip_address, uint16_t port)
+{
+    server_endpoint = (m_hive, boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port));
+    m_socket.open( server_endpoint.protocol() );
+    m_socket.bind(server_endpoint);
+}
+
+void UdpConnection::start_receive()
+{
+    m_socket.async_receive_from(boost::asio::buffer(m_recv_buffer), remote_endpoint, boost::bind(&UdpConnection::HandleRecv, shared_from_this, _1, _2));
+}
+
+void UdpConnection::HandleRecv(const boost::system::error_code &error, int32_t actual_bytes)
+{
+    if (!error)
+    {
+        try {
+            m_recv_buffer.resize( actual_bytes );
+            OnRecv( m_recv_buffer, remote_endpoint );
+        }
+        catch (std::exception ex) {
+            std::clog << (std::string)"handle_receive: Error parsing incoming message:" + ex.what();
+        }
+        catch (...) {
+            std::clog << "handle_receive: Unknown error while parsing incoming message";
+        }
+    }
+    else
+    {
+        std::clog << (std::string)"handle_receive: error: " + error.message() + " while receiving from address " + remote_endpoint;
+        handle_remote_error(error, remote_endpoint);
+    }
+
+    start_receive();
+}
+
+boost::asio::ip::udp::socket & UdpConnection::GetSocket()
+{
+    return m_socket;
+}
+
+boost::shared_ptr< Hive > UdpConnection::GetHive()
+{
+    return m_hive;
+}
+
+void UdpConnection::SetReceiveBufferSize( int32_t size )
+{
+    m_receive_buffer_size = size;
+}
+
+int32_t UdpConnection::GetReceiveBufferSize() const
+{
+    return m_receive_buffer_size;
+}
+
+int32_t UdpConnection::GetTimerInterval() const
+{
+    return m_timer_interval;
+}
+
+void UdpConnection::SetTimerInterval( int32_t timer_interval )
+{
+    m_timer_interval = timer_interval;
+}
+
+bool UdpConnection::HasError()
+{
+    return ( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 1 ) == 1 );
+}
+
+*/

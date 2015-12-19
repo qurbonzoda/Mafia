@@ -28,6 +28,85 @@ using boost::int8_t;
 
 //-----------------------------------------------------------------------------
 
+/*
+class UdpConnection : public boost::enable_shared_from_this< UdpConnection >
+{
+private:
+    boost::shared_ptr< Hive > m_hive;
+    boost::asio::ip::udp::socket m_socket;
+    boost::asio::ip::udp::endpoint server_endpoint;
+    boost::asio::ip::udp::endpoint remote_endpoint;
+    std::vector< uint8_t > m_recv_buffer;
+    std::list< int32_t > m_pending_recvs;
+    std::list< std::vector< uint8_t > > m_pending_sends;
+    int32_t m_receive_buffer_size;
+    int32_t m_timer_interval;
+    volatile uint32_t m_error_state;
+protected:
+    UdpConnection( boost::shared_ptr< Hive > hive, std::string ip_addres, uint16_t port);
+    virtual ~UdpConnection();
+
+private:
+
+    void HandleSend( const boost::system::error_code & error, std::list< std::vector< uint8_t > >::iterator itr );
+    void HandleRecv( const boost::system::error_code & error, int32_t actual_bytes );
+
+    // Called when data has been sent by the connection.
+    virtual void OnSend( const std::vector< uint8_t > & buffer ) = 0;
+
+    // Called when data has been received by the connection.
+    virtual void OnRecv( std::vector< uint8_t > & buffer ) = 0;
+
+    // Called on each timer event.
+    virtual void OnTimer( const boost::posix_time::time_duration & delta ) = 0;
+
+    // Called when an error is encountered.
+    virtual void OnError( const boost::system::error_code & error ) = 0;
+
+public:
+    // Returns the Hive object.
+    boost::shared_ptr< Hive > GetHive();
+
+    // Returns the socket object.
+    boost::asio::ip::udp::socket & GetSocket();
+
+    // Sets the application specific receive buffer size used. For stream
+    // based protocols such as HTTP, you want this to be pretty large, like
+    // 64kb. For packet based protocols, then it will be much smaller,
+    // usually 512b - 8kb depending on the protocol. The default value is
+    // 4kb.
+    void SetReceiveBufferSize( int32_t size );
+
+    // Returns the size of the receive buffer size of the current object.
+    int32_t GetReceiveBufferSize() const;
+
+    // Sets the timer interval of the object. The interval is changed after
+    // the next update is called.
+    void SetTimerInterval( int32_t timer_interval_ms );
+
+    // Returns the timer interval of the object.
+    int32_t GetTimerInterval() const;
+
+    // Returns true if this object has an error associated with it.
+    bool HasError();
+
+    // Binds the socket to the specified interface.
+    void Bind( const std::string & ip, uint16_t port );
+
+    void start_receive();
+
+    // Posts a recv for the connection to process. If total_bytes is 0, then
+    // as many bytes as possible up to GetReceiveBufferSize() will be
+    // waited for. If Recv is not 0, then the connection will wait for exactly
+    // total_bytes before invoking OnRecv.
+    void Recv( int32_t total_bytes = 0 );
+
+    // Posts an asynchronous disconnect event for the object to process.
+    void Disconnect();
+};
+*/
+//-----------------------------------------------------------------------------
+
 class Hive;
 class Acceptor;
 class Connection;
@@ -219,6 +298,7 @@ public:
 };
 
 //-----------------------------------------------------------------------------
+
 
 class Hive : public boost::enable_shared_from_this< Hive >
 {
