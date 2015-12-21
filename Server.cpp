@@ -4,15 +4,17 @@
 
 #include <boost/thread/pthread/mutex.hpp>
 #include "Server.h"
+#include "PlayerMessage.h"
+#include "Command.h"
+
+using namespace boost::asio::ip;
+
+uint32_t Server::player_id_counter = 0;
+std::map<size_t, udp::endpoint> Server::players;
 
 
-
-Server::Server(boost::shared_ptr< Hive > hive, std::string ip_address, uint16_t port)
+Server::Server(boost::shared_ptr< Hive > hive, std::string ip_address, uint16_t port) : hive(hive)
 {
-    player_id_counter = 0;
-
-    this->hive = hive;
-
     boost::shared_ptr< MyAcceptor > acceptor( new MyAcceptor( hive ) );
     acceptor->Listen( ip_address, port );
 
@@ -27,23 +29,23 @@ Server::Server(boost::shared_ptr< Hive > hive, std::string ip_address, uint16_t 
 
 void Server::MyConnection::OnAccept( const std::string & host, uint16_t port )
 {
+    std::clog << "[" << __FUNCTION__ << "] " << host << ":" << port << std::endl;
     /// id must be sent
     uint16_t len = 2 + 1 + 4;
+    uint32_t id = ++player_id_counter;
+    std::clog << "new player id " << id << std::endl;
 
-    std::vector<uint8_t> unique_id(Formatter::getVector(len, 0, ""));
-    unique_id.push_back(1);
-    unique_id.push_back(1);
-    unique_id.push_back(1);
-    unique_id.push_back(1);
+    boost::shared_ptr<udp::endpoint> endpoint(new udp::endpoint(address::from_string( GetSocket().remote_endpoint().address().to_string() ), GetSocket().remote_endpoint().port()));
+
+    players[id] = get_or_create_player(endpoint);
+    std::vector<uint8_t> unique_id(Formatter::getMessageFormat(len, Command::Type::PLAYER_ID,
+                                                               Formatter::getBytesOf(id, sizeof(id))));
+
     Send(unique_id);
-    std::clog << "[" << __FUNCTION__ << "] " << host << ":" << port << std::endl;
     Recv();
 }
 void Server::MyConnection::OnConnect( const std::string & host, uint16_t port )
 {
-    std::vector<uint8_t> unique_id;
-    unique_id.push_back(10);
-    Send(unique_id);
     std::clog << "[" << __FUNCTION__ << "] " << host << ":" << port << std::endl;
     Recv();
 }
@@ -76,7 +78,12 @@ void Server::MyConnection::OnRecv( std::vector< uint8_t > & buffer )
         }
     }
     std::clog << std::endl;
-
+    PlayerMessage playerMessage(buffer);
+    std::clog << "PlayerMessage len = " << playerMessage.getLen() << std::endl;
+    std::clog << "PlayerMessage id = " << playerMessage.getId() << std::endl;
+    std::clog << "PlayerMessage command = " << playerMessage.getCommand() << std::endl;
+    std::clog << "PlayerMessage data = " << Formatter::getStringOf(playerMessage.getData()) << std::endl;
+    Command::execute(playerMessage);
     // Start the next receive
     Recv();
 
@@ -138,3 +145,14 @@ void Server::MyUdpConnection::OnRecv( const std::vector< uint8_t > & buffer )
 }
 void Server::MyUdpConnection::OnSend( const std::vector< uint8_t > & buffer );
 */
+static boost::shared_ptr<Player> Server::get_or_create_player(boost::shared_ptr<udp::endpoint> endpoint)
+{
+    for (auto &player : players)
+    {
+        if (player.second->getEndpoint() == endpoint)
+        {
+            return player.second;
+        }
+    }
+    return boost::shared_ptr<Player>(new Player(endpoint));
+}

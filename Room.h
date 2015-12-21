@@ -9,21 +9,24 @@
 #include <vector>
 #include <set>
 #include "Player.h"
+#include <boost/shared_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
+
+class Player;
 
 class Room
 {
-    /*
 public:
     Room(size_t id, size_t max_players, std::string password);
-    void join(boost::shared_ptr<Player> player);
+    void join(boost::shared_ptr< Player > player);
     void SendToAllExcept(const std::string& message, size_t playerID);
 private:
     size_t id;
     size_t max_players;
     std::string password;
     std::string name;
-    std::set< boost::shared_ptr<Player> > players;
-     */
+    std::set< boost::shared_ptr< Player > > players;
+
 };
 
 

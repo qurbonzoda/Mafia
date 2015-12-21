@@ -9,10 +9,15 @@
 #include "Room.h"
 #include "Player.h"
 #include "Formatter.h"
+#include "PlayerMessage.h"
+#include <atomic>
 
-enum Command
-{
-    PLAYER_ID, PLAYERS_IN_ROOM, START_GAME, AUTHORISATION, NEW_ROOM, ENTER_ROOM, LEAVE_ROOM, ROOMS_LIST
+namespace Command {
+    enum Type
+    {
+        PLAYER_ID, PLAYERS_IN_ROOM, START_GAME, AUTHORISATION, NEW_ROOM, ENTER_ROOM, LEAVE_ROOM, ROOMS_LIST
+    };
+    void execute(PlayerMessage const & message);
 };
 
 class Server : public boost::enable_shared_from_this<Server>
@@ -43,7 +48,9 @@ public:
     public:
         MyConnection( boost::shared_ptr< Hive > hive );
         ~MyConnection();
+
     };
+
 /*
     class MyUdpConnection : public UdpConnection
     {
@@ -55,14 +62,17 @@ public:
         MyUdpConnection(boost::shared_ptr<Hive> hive);
         ~MyUdpConnection();
     };
-    */
+*/
 private:
-    size_t player_id_counter;
-    boost::shared_ptr<Hive> hive;
-    /*
-    std::set< boost::shared_ptr<Room> > rooms;
-    std::map<size_t, boost::asio::ip::tcp::endpoint> players;
-     */
+    static boost::shared_ptr<Player> get_or_create_player(boost::shared_ptr<boost::asio::ip::udp::endpoint> endpoint);
+
+private:
+    static uint32_t player_id_counter;
+    static boost::shared_ptr<Hive> hive;
+
+    static std::set< boost::shared_ptr<Room> > rooms;
+    static std::map<size_t, boost::shared_ptr<Player> > players;
+
 };
 
 #endif //MAFIA_SERVER_H

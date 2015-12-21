@@ -7,7 +7,7 @@ boost::mutex global_stream_lock;
 
 void new_thread_handler(boost::shared_ptr< Hive > hive)
 {
-    std::clog << "[" << boost::this_thread::get_id() << "] " << "Thread started!";
+    std::clog << "[" << boost::this_thread::get_id() << "] " << "Thread started!" << std::endl;
     hive->Run();
     std::clog << "[" << boost::this_thread::get_id() << "] " << "Thread finished!" << std::endl;
 }
@@ -15,7 +15,7 @@ void new_thread_handler(boost::shared_ptr< Hive > hive)
 int main( int argc, char * argv[] )
 {
     boost::shared_ptr< Hive > hive( new Hive() );
-    boost::shared_ptr< Server > server( new Server(hive, "192.168.1.3", 7779) );
+    boost::shared_ptr< Server > server( new Server(hive, "192.168.1.3", 7780) );
 /*
 
 */
