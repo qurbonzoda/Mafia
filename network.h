@@ -13,6 +13,7 @@
 #include <vector>
 #include <list>
 #include <boost/cstdint.hpp>
+#include "Server.h"
 
 //-----------------------------------------------------------------------------
 
@@ -25,6 +26,8 @@ using boost::int64_t;
 using boost::int32_t;
 using boost::int16_t;
 using boost::int8_t;
+
+class Server;
 
 //-----------------------------------------------------------------------------
 
@@ -172,6 +175,9 @@ private:
     virtual void OnError( const boost::system::error_code & error ) = 0;
 
 public:
+
+    virtual const boost::shared_ptr< Server > &getServer() const = 0;
+
     // Returns the Hive object.
     boost::shared_ptr< Hive > GetHive();
 

@@ -10,12 +10,12 @@
 #include "Server.h"
 #include "Command.h"
 
-using namespace Command;
-
 class PlayerMessage
 {
 public:
     PlayerMessage(std::vector<uint8_t> const & message);
+    PlayerMessage(PlayerMessage const & message);
+    PlayerMessage();
 
     uint32_t getLen() const
     {
@@ -27,21 +27,51 @@ public:
         return id;
     }
 
-    const Command::Type &getCommand() const
+    const size_t &getCommand() const
     {
         return command;
     }
 
-    const std::vector<uint8_t> &getData() const
+    const std::vector< std::vector<uint8_t> > &getParams() const
     {
-        return data;
+        return params;
+    }
+
+    void setParam(size_t i, std::vector<uint8_t> value)
+    {
+        if (i >= params.size())
+        {
+            std::clog << "setParam out of range" << std::endl;
+        }
+        params[i] = value;
+    }
+
+public:
+    void setLen(uint32_t len)
+    {
+        PlayerMessage::len = len;
+    }
+
+    void setId(uint32_t id)
+    {
+        PlayerMessage::id = id;
+    }
+
+    void setCommand(size_t command)
+    {
+        PlayerMessage::command = command;
+    }
+
+    void setParams(const std::vector<std::vector<uint8_t>> &params)
+    {
+        PlayerMessage::params = params;
     }
 
 private:
-    uint32_t len;
-    uint32_t id;
-    Command::Type command;
-    std::vector<uint8_t> data;
+    uint32_t len = 0;
+    uint32_t id = 0;
+    size_t command = 0;
+    std::vector< std::vector<uint8_t> > params;
 };
 
 

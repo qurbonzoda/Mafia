@@ -7,13 +7,23 @@
 
 PlayerMessage::PlayerMessage(std::vector<uint8_t> const &message)
 {
-    if (message.size() < 5)
+    auto params = Formatter::split(message, ' ');
+    if (params.size() < 3)
     {
         std::clog << "FATAL Message!!" << std::endl;
         return;
     }
-    len = Formatter::getValueOf(std::vector<uint8_t>(message.begin(), message.begin() + 2));
-    id = Formatter::getValueOf(std::vector<uint8_t>(message.begin() + 2, message.begin() + 4));
-    command = (Command::Type)Formatter::getValueOf(std::vector<uint8_t>(message.begin() + 4, message.begin() + 5));
-    data = std::vector<uint8_t>(message.begin() + 5, message.end());
+    len = std::stoi(Formatter::getStringOf(params[0]));
+    id = std::stoi(Formatter::getStringOf(params[1]));
+    command = std::stoi(Formatter::getStringOf(params[2]));
+    this->params = std::vector< std::vector<uint8_t> >(params.begin() + 3, params.end());
+}
+
+PlayerMessage::PlayerMessage(const PlayerMessage &message) : len(message.len), id(message.id),
+                                                             command(message.command), params(message.params)
+{
+}
+
+PlayerMessage::PlayerMessage()
+{
 }

@@ -5,11 +5,18 @@
 #ifndef MAFIA_COMMAND_H
 #define MAFIA_COMMAND_H
 #include "PlayerMessage.h"
+#include "Server.h"
 
 class PlayerMessage;
+class Server;
 
 namespace Command {
-    void authorization(std::vector<uint8_t> const & bytes);
-    void new_room(std::vector<uint8_t> const & bytes);
+    /*
+    enum Type
+    {
+        PLAYER_ID, PLAYERS_IN_ROOM, START_GAME, AUTHORISATION, NEW_ROOM, ENTER_ROOM, LEAVE_ROOM, ROOMS_LIST
+    };
+     */
+
 };
 #endif //MAFIA_COMMAND_H

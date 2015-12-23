@@ -15,7 +15,7 @@ void new_thread_handler(boost::shared_ptr< Hive > hive)
 int main( int argc, char * argv[] )
 {
     boost::shared_ptr< Hive > hive( new Hive() );
-    boost::shared_ptr< Server > server( new Server(hive, "192.168.1.3", 7780) );
+    boost::shared_ptr< Server > server( Server::newInstance(hive, "192.168.1.3", 7785) );
 /*
 
 */
