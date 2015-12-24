@@ -28,10 +28,14 @@ using boost::int16_t;
 using boost::int8_t;
 
 class Server;
+class Hive;
+class Acceptor;
+class Connection;
+class UdpConnection;
 
 //-----------------------------------------------------------------------------
 
-/*
+
 class UdpConnection : public boost::enable_shared_from_this< UdpConnection >
 {
 private:
@@ -51,22 +55,24 @@ protected:
 
 private:
 
-    void HandleSend( const boost::system::error_code & error, std::list< std::vector< uint8_t > >::iterator itr );
+    void HandleSend( const boost::system::error_code &error, const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint );
     void HandleRecv( const boost::system::error_code & error, int32_t actual_bytes );
 
     // Called when data has been sent by the connection.
-    virtual void OnSend( const std::vector< uint8_t > & buffer ) = 0;
+    virtual void OnSend( const std::vector< uint8_t > & buffer, boost::asio::ip::udp::endpoint remote_endpoint ) = 0;
 
     // Called when data has been received by the connection.
-    virtual void OnRecv( std::vector< uint8_t > & buffer ) = 0;
+    virtual void OnRecv( std::vector< uint8_t > & buffer, boost::asio::ip::udp::endpoint remote_endpoint ) = 0;
 
     // Called on each timer event.
     virtual void OnTimer( const boost::posix_time::time_duration & delta ) = 0;
 
     // Called when an error is encountered.
-    virtual void OnError( const boost::system::error_code & error ) = 0;
+    virtual void OnError( const boost::system::error_code & error, boost::asio::ip::udp::endpoint remote_endpoint ) = 0;
 
 public:
+    virtual const boost::shared_ptr< Server > &getServer() const = 0;
+
     // Returns the Hive object.
     boost::shared_ptr< Hive > GetHive();
 
@@ -96,23 +102,14 @@ public:
     // Binds the socket to the specified interface.
     void Bind( const std::string & ip, uint16_t port );
 
-    void start_receive();
+    void Send( const std::vector< uint8_t > & buffer, boost::asio::ip::udp::endpoint remote_endpoint);
 
-    // Posts a recv for the connection to process. If total_bytes is 0, then
-    // as many bytes as possible up to GetReceiveBufferSize() will be
-    // waited for. If Recv is not 0, then the connection will wait for exactly
-    // total_bytes before invoking OnRecv.
-    void Recv( int32_t total_bytes = 0 );
+    void StartRecv();
+    void StartError(const boost::system::error_code &error, boost::asio::ip::udp::endpoint remote_endpoint);
 
     // Posts an asynchronous disconnect event for the object to process.
     void Disconnect();
 };
-*/
-//-----------------------------------------------------------------------------
-
-class Hive;
-class Acceptor;
-class Connection;
 
 //-----------------------------------------------------------------------------
 

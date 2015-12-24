@@ -84,17 +84,11 @@ void MyConnection::OnTimer( const boost::posix_time::time_duration & delta )
 void MyConnection::OnError( const boost::system::error_code & error )
 {
     auto server = this->getServer();
-    auto player = server->getPlayer_by_connection(boost::static_pointer_cast<MyConnection>(shared_from_this()));
-    // TO BE CONTINUED !!!
+    auto player = server->getPlayer_by_connection(shared_from_this());
+    server->delete_player(player);
 
     std::clog << "[" << __FUNCTION__ << "] " << error << std::endl;
 }
-
-MyConnection::MyConnection( boost::shared_ptr< Hive > hive )
-        : Connection( hive )
-{
-}
-
 MyConnection::MyConnection(boost::shared_ptr<Server> server, boost::shared_ptr<Hive> hive)
         : Connection( hive ), server(server)
 {
@@ -125,11 +119,6 @@ void MyAcceptor::OnError( const boost::system::error_code & error )
     std::clog << "[" << __FUNCTION__ << "] " << error << std::endl;
 }
 
-MyAcceptor::MyAcceptor( boost::shared_ptr< Hive > hive )
-        : Acceptor( hive )
-{
-}
-
 MyAcceptor::MyAcceptor(boost::shared_ptr<Server> server, boost::shared_ptr<Hive> hive)
         : Acceptor( hive ), server(server)
 {
@@ -139,11 +128,47 @@ MyAcceptor::MyAcceptor(boost::shared_ptr<Server> server, boost::shared_ptr<Hive>
 MyAcceptor::~MyAcceptor()
 {
 }
-/*
-void MyUdpConnection::OnRecv( const std::vector< uint8_t > & buffer )
-{
-    start_receive();
 
+MyUdpConnection::MyUdpConnection(boost::shared_ptr<Server> server, boost::shared_ptr<Hive> hive,
+                                   const std::string &host, uint16_t port) : UdpConnection(hive, host, port), server(server)
+{
 }
-void MyUdpConnection::OnSend( const std::vector< uint8_t > & buffer );
-*/
+
+void MyUdpConnection::OnSend(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
+{
+    std::clog << "[ " << __FUNCTION__ << " ]" << std::endl;
+    std::clog << "[ " << buffer.size() << " ] bytes sent to " << remote_endpoint << std::endl;
+}
+
+void MyUdpConnection::OnRecv(std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
+{
+    std::clog << "[ " << __FUNCTION__ << " ]" << std::endl;
+    std::clog << "[ " << buffer.size() << " ] bytes received from " << remote_endpoint << std::endl;
+    Send(buffer, remote_endpoint);
+    Send(buffer, udp::endpoint(remote_endpoint.address(), 1010));
+
+    /*
+    auto player = getServer()->getPlayer_by_endpoint(remote_endpoint);
+    auto room = player->getRoom();
+
+    for (auto player : room->getPlayers())
+    {
+        Send(buffer, *player->getEndpoint());
+    }
+    */
+}
+
+void MyUdpConnection::OnError(const boost::system::error_code &error, boost::asio::ip::udp::endpoint remote_endpoint)
+{
+    std::clog << "[" << __FUNCTION__ << "] " << error << std::endl;
+    std::clog << " error on endpoint " << remote_endpoint << std::endl;
+}
+
+void MyUdpConnection::OnTimer(const boost::posix_time::time_duration &delta)
+{
+    std::clog << "[" << __FUNCTION__ << "] " << delta << std::endl;
+}
+
+MyUdpConnection::~MyUdpConnection()
+{
+}

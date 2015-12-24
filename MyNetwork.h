@@ -16,7 +16,6 @@ private:
     void OnError( const boost::system::error_code & error );
 
 public:
-    MyAcceptor( boost::shared_ptr< Hive > hive );
     MyAcceptor( boost::shared_ptr<Server> server, boost::shared_ptr< Hive > hive );
     ~MyAcceptor();
 
@@ -40,7 +39,6 @@ private:
     void OnTimer( const boost::posix_time::time_duration & delta );
     void OnError( const boost::system::error_code & error );
 public:
-    MyConnection( boost::shared_ptr< Hive > hive );
     MyConnection( boost::shared_ptr<Server> server, boost::shared_ptr< Hive > hive );
     ~MyConnection();
 
@@ -54,17 +52,28 @@ private:
     boost::shared_ptr<Server> server;
 };
 
-/*
-    class MyUdpConnection : public UdpConnection
-    {
-    private:
-        void OnRecv( const std::vector< uint8_t > & buffer, boost::asio::ip::udp::endpoint &remove_endpoint );
-        void OnSend( const std::vector< uint8_t > & buffer, boost::asio::ip::udp::endpoint &remove_endpoint );
 
-    public:
-        MyUdpConnection(boost::shared_ptr<Hive> hive);
-        ~MyUdpConnection();
-    };
-*/
+class MyUdpConnection : public UdpConnection
+{
+private:
+    void OnSend( const std::vector< uint8_t > & buffer, boost::asio::ip::udp::endpoint remote_endpoint );
+    void OnRecv( std::vector< uint8_t > & buffer, boost::asio::ip::udp::endpoint remote_endpoint );
+    void OnTimer( const boost::posix_time::time_duration & delta );
+    void OnError( const boost::system::error_code & error, boost::asio::ip::udp::endpoint remote_endpoint );
+
+public:
+    MyUdpConnection( boost::shared_ptr<Server> server, boost::shared_ptr< Hive > hive, const std::string & host, uint16_t port );
+    ~MyUdpConnection();
+
+public:
+    const boost::shared_ptr<Server> &getServer() const
+    {
+        return server;
+    }
+
+private:
+    boost::shared_ptr<Server> server;
+};
+
 
 #endif //MAFIA_MYNETWORK_H

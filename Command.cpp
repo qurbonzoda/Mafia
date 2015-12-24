@@ -62,6 +62,7 @@ namespace Command {
         std::clog << "room_id = " << room->getId() << std::endl;
         copy_message.setParam(0, Formatter::getVectorOf(std::to_string(room->getId())));
         std::clog << Formatter::getStringOf(copy_message.getParams()[0]) << std::endl;
+
         room_info(connection, copy_message);
         server->update_room_list();
     }
@@ -133,6 +134,10 @@ namespace Command {
         auto server = connection->getServer();
         auto player = server->getPlayer_by_id(message.getId());
         auto room = player->getRoom();
+        if (room == nullptr)
+        {
+            return;
+        }
         room->erase(player);
         if (room->getNumber_of_players() == 0)
         {

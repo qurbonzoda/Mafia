@@ -395,22 +395,28 @@ bool Connection::HasError()
 
 
 //-----------------------------------------------------------------------------
-/*
-UdpConnection::UdpConnection(boost::shared_ptr<Hive> hive, std::string ip_address, uint16_t port) : m_socket(hive->GetService())
+
+UdpConnection::UdpConnection(boost::shared_ptr<Hive> hive, std::string ip_address, uint16_t port) :
+        m_socket(hive->GetService(), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port))
 {
+
+    m_receive_buffer_size = 4096;
+    m_timer_interval = 1000;
+    m_error_state = 0;
+    server_endpoint = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port);
     m_hive = hive;
-    Bind(ip_address, port);
 }
 void UdpConnection::Bind(std::string const & ip_address, uint16_t port)
 {
-    server_endpoint = (m_hive, boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port));
+    server_endpoint = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port);
     m_socket.open( server_endpoint.protocol() );
     m_socket.bind(server_endpoint);
 }
 
-void UdpConnection::start_receive()
+void UdpConnection::StartRecv()
 {
-    m_socket.async_receive_from(boost::asio::buffer(m_recv_buffer), remote_endpoint, boost::bind(&UdpConnection::HandleRecv, shared_from_this, _1, _2));
+    m_recv_buffer.resize(m_receive_buffer_size);
+    m_socket.async_receive_from(boost::asio::buffer(m_recv_buffer), remote_endpoint, boost::bind( &UdpConnection::HandleRecv, shared_from_this(), _1, _2));
 }
 
 void UdpConnection::HandleRecv(const boost::system::error_code &error, int32_t actual_bytes)
@@ -430,11 +436,27 @@ void UdpConnection::HandleRecv(const boost::system::error_code &error, int32_t a
     }
     else
     {
-        std::clog << (std::string)"handle_receive: error: " + error.message() + " while receiving from address " + remote_endpoint;
-        handle_remote_error(error, remote_endpoint);
+        std::clog << (std::string)"handle_receive: error: " + error.message() + " while receiving from address " << remote_endpoint;
+        OnError(error, remote_endpoint);
     }
+    StartRecv();
+}
 
-    start_receive();
+void UdpConnection::HandleSend(const boost::system::error_code &error, const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
+{
+    if( error || HasError() || m_hive->HasStopped() )
+    {
+        StartError( error, remote_endpoint );
+    }
+    else
+    {
+        OnSend( buffer, remote_endpoint );
+    }
+}
+
+void UdpConnection::Send(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
+{
+    m_socket.async_send_to(boost::asio::buffer(buffer), remote_endpoint, boost::bind(&UdpConnection::HandleSend, shared_from_this(), boost::asio::placeholders::error, buffer, remote_endpoint));
 }
 
 boost::asio::ip::udp::socket & UdpConnection::GetSocket()
@@ -472,4 +494,19 @@ bool UdpConnection::HasError()
     return ( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 1 ) == 1 );
 }
 
-*/
+void UdpConnection::StartError(const boost::system::error_code &error, boost::asio::ip::udp::endpoint remote_endpoint)
+{
+    if( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 0 ) == 0 )
+    {
+        boost::system::error_code ec;
+        m_socket.shutdown( boost::asio::ip::udp::socket::shutdown_both, ec );
+        m_socket.close( ec );
+        //m_timer.cancel( ec );
+        OnError( error, remote_endpoint );
+    }
+
+}
+
+UdpConnection::~UdpConnection()
+{
+}
