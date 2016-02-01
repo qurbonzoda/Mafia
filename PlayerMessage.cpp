@@ -3,13 +3,14 @@
 //
 
 #include "PlayerMessage.h"
-#include "Command.h"
+#include "Formatter.h"
 
 PlayerMessage::PlayerMessage(std::vector<uint8_t> const &message)
 {
     auto params = Formatter::split(message, ' ');
     if (params.size() < 3)
     {
+        throw "undefined message";
         std::clog << "FATAL Message!!" << std::endl;
         return;
     }

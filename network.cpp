@@ -63,7 +63,7 @@ void Hive::Reset()
 
 
 Acceptor::Acceptor( boost::shared_ptr< Hive > hive )
-        : m_hive( hive ), m_acceptor( hive->GetService() ), m_io_strand( hive->GetService() ), m_timer( hive->GetService() ), m_timer_interval( 1000 ), m_error_state( 0 )
+        : m_hive( hive ), m_acceptor( hive->GetService() ), m_io_strand( hive->GetService() ), m_timer( hive->GetService() ), m_timer_interval( 5000 ), m_error_state( 0 )
 {
 }
 
@@ -104,7 +104,7 @@ void Acceptor::HandleTimer( const boost::system::error_code & error )
     else
     {
         OnTimer( boost::posix_time::microsec_clock::local_time() - m_last_time );
-        //StartTimer();
+        StartTimer();
     }
 }
 
@@ -118,7 +118,7 @@ void Acceptor::HandleAccept( const boost::system::error_code & error, boost::sha
     {
         if( connection->GetSocket().is_open() )
         {
-            connection->StartTimer();
+            //connection->StartTimer();
             if( OnAccept( connection, connection->GetSocket().remote_endpoint().address().to_string(), connection->GetSocket().remote_endpoint().port() ) )
             {
                 connection->OnAccept( m_acceptor.local_endpoint().address().to_string(), m_acceptor.local_endpoint().port() );
@@ -181,8 +181,9 @@ bool Acceptor::HasError()
 //-----------------------------------------------------------------------------
 
 Connection::Connection( boost::shared_ptr< Hive > hive )
-        : m_hive( hive ), m_socket( hive->GetService() ), m_io_strand( hive->GetService() ), m_timer( hive->GetService() ), m_receive_buffer_size( 4096 ), m_timer_interval( 1000 ), m_error_state( 0 )
+        : m_hive( hive ), m_socket( hive->GetService() ), m_io_strand( hive->GetService() ), m_timer( hive->GetService() ), m_receive_buffer_size( 4096 ), m_timer_interval( 5000 ), m_error_state( 0 )
 {
+
 }
 
 Connection::~Connection()
@@ -239,25 +240,6 @@ void Connection::StartError( const boost::system::error_code & error )
     }
 }
 
-void Connection::HandleConnect( const boost::system::error_code & error )
-{
-    if( error || HasError() || m_hive->HasStopped() )
-    {
-        StartError( error );
-    }
-    else
-    {
-        if( m_socket.is_open() )
-        {
-            OnConnect( m_socket.remote_endpoint().address().to_string(), m_socket.remote_endpoint().port() );
-        }
-        else
-        {
-            StartError( error );
-        }
-    }
-}
-
 void Connection::HandleSend( const boost::system::error_code & error, std::list< std::vector< uint8_t > >::iterator itr )
 {
     if( error || HasError() || m_hive->HasStopped() )
@@ -299,7 +281,7 @@ void Connection::HandleTimer( const boost::system::error_code & error )
     else
     {
         OnTimer( boost::posix_time::microsec_clock::local_time() - m_last_time );
-        //StartTimer();
+        StartTimer();
     }
 }
 
@@ -326,16 +308,6 @@ void Connection::DispatchRecv( int32_t total_bytes )
 void Connection::DispatchTimer( const boost::system::error_code & error )
 {
     m_io_strand.post( boost::bind( &Connection::HandleTimer, shared_from_this(), error ) );
-}
-
-void Connection::Connect( const std::string & host, uint16_t port)
-{
-    boost::system::error_code ec;
-    boost::asio::ip::tcp::resolver resolver( m_hive->GetService() );
-    boost::asio::ip::tcp::resolver::query query( host, boost::lexical_cast< std::string >( port ) );
-    boost::asio::ip::tcp::resolver::iterator iterator = resolver.resolve( query );
-    m_socket.async_connect( *iterator, m_io_strand.wrap( boost::bind( &Connection::HandleConnect, shared_from_this(), _1 ) ) );
-    //StartTimer();
 }
 
 void Connection::Disconnect()
@@ -397,14 +369,14 @@ bool Connection::HasError()
 //-----------------------------------------------------------------------------
 
 UdpConnection::UdpConnection(boost::shared_ptr<Hive> hive, std::string ip_address, uint16_t port) :
-        m_socket(hive->GetService(), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port))
+        m_socket(hive->GetService(), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port)), m_timer(hive->GetService())
 {
-
     m_receive_buffer_size = 4096;
-    m_timer_interval = 1000;
+    m_timer_interval = 5000;
     m_error_state = 0;
     server_endpoint = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port);
     m_hive = hive;
+    //StartTimer();
 }
 void UdpConnection::Bind(std::string const & ip_address, uint16_t port)
 {
@@ -437,7 +409,7 @@ void UdpConnection::HandleRecv(const boost::system::error_code &error, int32_t a
     else
     {
         std::clog << (std::string)"handle_receive: error: " + error.message() + " while receiving from address " << remote_endpoint;
-        OnError(error, remote_endpoint);
+        StartError( error, remote_endpoint );
     }
     StartRecv();
 }
@@ -501,10 +473,31 @@ void UdpConnection::StartError(const boost::system::error_code &error, boost::as
         boost::system::error_code ec;
         m_socket.shutdown( boost::asio::ip::udp::socket::shutdown_both, ec );
         m_socket.close( ec );
-        //m_timer.cancel( ec );
+        m_timer.cancel( ec );
         OnError( error, remote_endpoint );
     }
 
+}
+
+void UdpConnection::StartTimer()
+{
+    m_last_time = boost::posix_time::microsec_clock::local_time();
+    m_timer.expires_from_now( boost::posix_time::milliseconds( m_timer_interval ) );
+    m_timer.async_wait( boost::bind(&UdpConnection::HandleTimer, shared_from_this(), _1 ));
+}
+
+
+void UdpConnection::HandleTimer( const boost::system::error_code & error )
+{
+    if( error || HasError() || m_hive->HasStopped() )
+    {
+
+    }
+    else
+    {
+        OnTimer( boost::posix_time::microsec_clock::local_time() - m_last_time );
+        StartTimer();
+    }
 }
 
 UdpConnection::~UdpConnection()

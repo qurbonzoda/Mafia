@@ -7,48 +7,29 @@
 #include "PlayerMessage.h"
 #include "Command.h"
 #include "MyNetwork.h"
+#include "Player.h"
+#include "Room.h"
+#include "Formatter.h"
 
-using namespace boost::asio::ip;
+using namespace boost::asio;
 
-volatile uint32_t Server::player_id_counter = 0;
-std::map<size_t, boost::shared_ptr<Player> > Server::players;
-std::set< boost::shared_ptr<Room> > Server::rooms;
-volatile uint32_t Server::room_id_counter = 0;
-
-
-boost::shared_ptr<Server> Server::newInstance(boost::shared_ptr< Hive > hive, std::string ip_address, uint16_t port)
+Server::Server(boost::shared_ptr< Hive > hive, std::string ip_address, uint16_t port)
+        : hive(hive), ip_address(ip_address), port(port)
 {
-    boost::shared_ptr<Server> newServer(new Server(hive));
-    boost::shared_ptr< MyAcceptor > acceptor( new MyAcceptor( newServer, hive ) );
-    acceptor->Listen( ip_address, port );
-
-    boost::shared_ptr< MyConnection > connection( new MyConnection( newServer, hive ) );
-    acceptor->Accept( connection );
-
-    assert(newServer != nullptr);
-    assert(newServer.get() != nullptr);
-    assert(newServer.get() != NULL);
-
-    boost::shared_ptr< MyUdpConnection > udp_connection ( new MyUdpConnection( newServer, hive, ip_address, port ) );
-    udp_connection->StartRecv();
-    return newServer;
+    std::clog << "Server on " << ip_address << ": " << port << std::endl;
 }
 
-Server::Server(boost::shared_ptr< Hive > hive) : hive(hive)
-{
-}
-
-boost::shared_ptr<Player> Server::get_or_create_player(boost::shared_ptr<udp::endpoint> endpoint)
+boost::shared_ptr<Player> Server::get_or_create_player(boost::shared_ptr<ip::address> const & address)
 {
     for (auto &player : players)
     {
-        if (player.second->getEndpoint() == endpoint)
+        if (player.second->getAddress() == address)
         {
             return player.second;
         }
     }
     auto player = create_new_player_instance();
-    player->setEndpoint(endpoint);
+    player->setAddress(address);
     return player;
 }
 
@@ -62,9 +43,13 @@ boost::shared_ptr<Player> Server::create_new_player_instance()
 
 boost::shared_ptr<Room> Server::create_new_room_instance()
 {
-    boost::shared_ptr<Room> room(new Room(++room_id_counter));
+    boost::shared_ptr<Room> room(new Room(++room_id_counter, shared_from_this()));
+    std::clog << "room use_count after creating := " + std::to_string(room.use_count()) << std::endl;
+    room->StartTimer();
+    std::clog << "room use_count after StartTimer := " + std::to_string(room.use_count()) << std::endl;
     rooms.insert(room);
-    std::clog << "create_new_player_instance: room_id_counter = " << room_id_counter << std::endl;
+    std::clog << "room use_count after insertion := " + std::to_string(room.use_count()) << std::endl;
+    std::clog << "create_new_room_instance: room_id_counter = " << room_id_counter << std::endl;
     return room;
 }
 
@@ -87,12 +72,19 @@ boost::shared_ptr<Room> Server::getRoom_by_id(uint32_t id)
             return room;
         }
     }
-    std::clog << id << " FATAL No such room id" << std::endl;
+    std::clog << std::to_string(id) + " FATAL No such room id" << std::endl;
+    return nullptr;
 }
 
 void Server::room_erase(boost::shared_ptr<Room> room)
 {
+    std::clog << __FUNCTION__;
+    if (rooms.find(room) == rooms.end())
+    {
+        std::clog << " FATAL No such room" << std::endl;
+    }
     rooms.erase(room);
+    std::clog << " room deleted" << std::endl;
 }
 
 void Server::update_room_list()
@@ -137,17 +129,17 @@ void Server::update_room_info(boost::shared_ptr<Room> room)
     }
 }
 
-boost::shared_ptr<Player> Server::getPlayer_by_endpoint(const boost::asio::ip::udp::endpoint &endpoint)
+boost::shared_ptr<Player> Server::getPlayer_by_address(const boost::asio::ip::address &address)
 {
-    std::clog << "[ " << __FUNCTION__ << " ]" << std::endl;
+    //std::clog << "[ " << __FUNCTION__ << " ]" << std::endl;
     for (auto player : players)
     {
-        if (*player.second->getEndpoint() == endpoint)
+        if (*player.second->getAddress() == address)
         {
             return player.second;
         }
     }
-    std::clog << endpoint << " FATAL No such room endpoint" << std::endl;
+    std::clog << address << " FATAL No such room endpoint" << std::endl;
 }
 
 void Server::delete_player(boost::shared_ptr<Player> player)
@@ -155,5 +147,27 @@ void Server::delete_player(boost::shared_ptr<Player> player)
     PlayerMessage message;
     message.setId(player->getId());
     Command::leave_room(player->getConnection(), message);
-    players.erase(player->getId());
+    if (players.find(player->getId()) != players.end()) {
+        players.erase(player->getId());
+    }
+    std::clog << "player " << player->getId() << " deleted" << std::endl;
+}
+
+void Server::Start()
+{
+    assert(shared_from_this() != nullptr);
+    assert(shared_from_this().get() != nullptr);
+    assert(shared_from_this().get() != NULL);
+
+    acceptor.reset( new MyAcceptor( shared_from_this(), hive ) );
+    acceptor->Listen( ip_address, port );
+    //acceptor->StartTimer();
+
+    boost::shared_ptr< Connection > connection( new MyConnection( shared_from_this(), hive ) );
+    acceptor->Accept( connection );
+    //connection->StartTimer();
+
+    udp.reset(new MyUdpConnection( shared_from_this(), hive, ip_address, port ));
+    udp->StartRecv();
+    //udp->StartTimer();
 }

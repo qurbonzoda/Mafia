@@ -1,6 +1,7 @@
-#include "network.h"
 #include <boost/thread/mutex.hpp>
 #include <boost/thread.hpp>
+#include "network.h"
+
 #include "Server.h"
 
 boost::mutex global_stream_lock;
@@ -15,17 +16,22 @@ void new_thread_handler(boost::shared_ptr< Hive > hive)
 int main( int argc, char * argv[] )
 {
     boost::shared_ptr< Hive > hive( new Hive() );
-    boost::shared_ptr< Server > server( Server::newInstance(hive, "192.168.1.3", 7779) );
+    boost::shared_ptr< Server > server(new Server(hive, "192.168.43.137", 7778 ));
+    server->Start();
 
 
     boost::thread_group threads;
-    threads.create_thread( boost::bind(&new_thread_handler, hive) );
+    for (int i = 0; i < 4; ++i)
+    {
+        threads.create_thread( boost::bind(&new_thread_handler, hive) );
+    }
 
     std::cin.get();
 
     hive->Stop();
 
     std::cin.get();
+    threads.join_all();
 
     return 0;
 }

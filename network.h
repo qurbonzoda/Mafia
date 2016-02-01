@@ -13,7 +13,6 @@
 #include <vector>
 #include <list>
 #include <boost/cstdint.hpp>
-#include "Server.h"
 
 //-----------------------------------------------------------------------------
 
@@ -27,7 +26,6 @@ using boost::int32_t;
 using boost::int16_t;
 using boost::int8_t;
 
-class Server;
 class Hive;
 class Acceptor;
 class Connection;
@@ -43,6 +41,8 @@ private:
     boost::asio::ip::udp::socket m_socket;
     boost::asio::ip::udp::endpoint server_endpoint;
     boost::asio::ip::udp::endpoint remote_endpoint;
+    boost::asio::deadline_timer m_timer;
+    boost::posix_time::ptime m_last_time;
     std::vector< uint8_t > m_recv_buffer;
     std::list< int32_t > m_pending_recvs;
     std::list< std::vector< uint8_t > > m_pending_sends;
@@ -57,6 +57,7 @@ private:
 
     void HandleSend( const boost::system::error_code &error, const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint );
     void HandleRecv( const boost::system::error_code & error, int32_t actual_bytes );
+    void HandleTimer( const boost::system::error_code & error );
 
     // Called when data has been sent by the connection.
     virtual void OnSend( const std::vector< uint8_t > & buffer, boost::asio::ip::udp::endpoint remote_endpoint ) = 0;
@@ -71,7 +72,6 @@ private:
     virtual void OnError( const boost::system::error_code & error, boost::asio::ip::udp::endpoint remote_endpoint ) = 0;
 
 public:
-    virtual const boost::shared_ptr< Server > &getServer() const = 0;
 
     // Returns the Hive object.
     boost::shared_ptr< Hive > GetHive();
@@ -106,6 +106,7 @@ public:
 
     void StartRecv();
     void StartError(const boost::system::error_code &error, boost::asio::ip::udp::endpoint remote_endpoint);
+    void StartTimer();
 
     // Posts an asynchronous disconnect event for the object to process.
     void Disconnect();
@@ -136,16 +137,14 @@ protected:
     virtual ~Connection();
 
 private:
-    Connection( const Connection & rhs );
-    Connection & operator =( const Connection & rhs );
+    Connection( const Connection & rhs ) = delete;
+    Connection & operator =( const Connection & rhs ) = delete;
     void StartSend();
     void StartRecv( int32_t total_bytes );
-    void StartTimer();
     void StartError( const boost::system::error_code & error );
     void DispatchSend( std::vector< uint8_t > buffer );
     void DispatchRecv( int32_t total_bytes );
     void DispatchTimer( const boost::system::error_code & error );
-    void HandleConnect( const boost::system::error_code & error );
     void HandleSend( const boost::system::error_code & error, std::list< std::vector< uint8_t > >::iterator itr );
     void HandleRecv( const boost::system::error_code & error, int32_t actual_bytes );
     void HandleTimer( const boost::system::error_code & error );
@@ -154,10 +153,6 @@ private:
     // Called when the connection has successfully connected to the local
     // host.
     virtual void OnAccept( const std::string & host, uint16_t port ) = 0;
-
-    // Called when the connection has successfully connected to the remote
-    // host.
-    virtual void OnConnect( const std::string & host, uint16_t port ) = 0;
 
     // Called when data has been sent by the connection.
     virtual void OnSend( const std::vector< uint8_t > & buffer ) = 0;
@@ -173,7 +168,7 @@ private:
 
 public:
 
-    virtual const boost::shared_ptr< Server > &getServer() const = 0;
+    void StartTimer();
 
     // Returns the Hive object.
     boost::shared_ptr< Hive > GetHive();
@@ -207,8 +202,6 @@ public:
     // Binds the socket to the specified interface.
     void Bind( const std::string & ip, uint16_t port );
 
-    // Starts an a/synchronous connect.
-    void Connect( const std::string & host, uint16_t port );
 
     // Posts data to be sent to the connection.
     void Send( const std::vector< uint8_t > & buffer );
@@ -241,7 +234,6 @@ private:
 private:
     Acceptor( const Acceptor & rhs );
     Acceptor & operator =( const Acceptor & rhs );
-    void StartTimer();
     void StartError( const boost::system::error_code & error );
     void DispatchAccept( boost::shared_ptr< Connection > connection );
     void HandleTimer( const boost::system::error_code & error );
@@ -268,6 +260,7 @@ private:
     virtual void OnError( const boost::system::error_code & error ) = 0;
 
 public:
+    void StartTimer();
     // Returns the Hive object.
     boost::shared_ptr< Hive > GetHive();
 

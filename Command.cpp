@@ -3,10 +3,16 @@
 //
 
 #include "Command.h"
+#include "PlayerMessage.h"
+#include "Formatter.h"
+#include "Player.h"
+#include "Room.h"
+#include "Server.h"
+#include "MyNetwork.h"
 
 namespace Command {
 
-    void execute(boost::shared_ptr<Connection> const &connection, PlayerMessage const &message)
+    void execute(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const &message)
     {
         std::clog << "request from player " << message.getId() << " command " << message.getCommand() << std::endl;
         switch (message.getCommand())
@@ -34,45 +40,44 @@ namespace Command {
         }
     }
 
-    void authorization(boost::shared_ptr<Connection> const &connection, PlayerMessage const &message)
+    void authorization(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const &message)
     {
         std::clog << "AUTHORIZATION" << std::endl;
-        assert(connection->getServer() != nullptr);
-        std::clog << "Assertion passed" << std::endl;
         boost::shared_ptr<Player> player = connection->getServer()->getPlayer_by_id(message.getId());
         player->setLogin(Formatter::getStringOf(message.getParams()[0]));
         player->setPassword(Formatter::getStringOf(message.getParams()[1]));
         room_list(connection, message);
     }
 
-    void new_room(boost::shared_ptr<Connection> const &connection, PlayerMessage const &message)
+    void new_room(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const &message)
     {
         std::clog << "NEW_ROOM" << std::endl;
         auto server = connection->getServer();
+        std::clog << "got server" << std::endl;
         boost::shared_ptr<Player> player = server->getPlayer_by_id(message.getId());
+        std::clog << "got player" << std::endl;
         boost::shared_ptr<Room> room = server->create_new_room_instance();
+        std::clog << "got room" << std::endl;
+
+        std::clog << "room use_count := " + std::to_string(room.use_count()) << std::endl;
         room->setMax_players(std::stoi(Formatter::getStringOf(message.getParams()[0])));
-        //std::clog << "maxPlayers in new room " << room->getId() << " is " + room->getMax_players() << std::endl;
-        //std::clog.flush();
+        std::clog << (std::string)"maxPlayers in new room " + std::to_string(room->getId())
+                     + " is " + std::to_string(room->getMax_players()) << std::endl;
+
         room->setPassword(Formatter::getStringOf(message.getParams()[1]));
-        player->setRoom(room);
-        room->join(player);
-
+        std::clog << "set Password" << std::endl;
         PlayerMessage copy_message(message);
-        std::clog << "room_id = " << room->getId() << std::endl;
         copy_message.setParam(0, Formatter::getVectorOf(std::to_string(room->getId())));
-        std::clog << Formatter::getStringOf(copy_message.getParams()[0]) << std::endl;
-
-        room_info(connection, copy_message);
-        server->update_room_list();
+        std::clog << std::to_string(room->getId()) + " == " + Formatter::getStringOf(copy_message.getParams()[0]) << std::endl;
+        enter_room(connection, copy_message);
     }
 
-    void room_list(boost::shared_ptr<Connection> const & connection, PlayerMessage const & message)
+    void room_list(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message)
     {
         room_list(connection);
     }
 
-    void room_list(boost::shared_ptr<Connection> const & connection)
+    void room_list(boost::shared_ptr<MyConnection> const & connection)
     {
         std::clog << "ROOM_LIST" << std::endl;
         auto rooms = connection->getServer()->getRooms();
@@ -82,37 +87,36 @@ namespace Command {
             answer += " " + std::to_string(room->getStatus()) + " " + std::to_string(room->isSafe()) + " "
                       + std::to_string(room->getNumber_of_players())
                       + " " + std::to_string(room->getMax_players()) + " " + std::to_string(room->getId());
-
-            //std::clog << "maxPlayers in room " << room->getId() << " is " + room->getMax_players() << std::endl;
-            //std::clog.flush();
         }
         answer = Formatter::getMessageFormat(answer);
         connection->Send(Formatter::getVectorOf(answer));
     }
 
-    void enter_room(boost::shared_ptr<Connection> const & connection, PlayerMessage const & message)
+    void enter_room(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message)
     {
         std::clog << "ENTER_ROOM" << std::endl;
         boost::shared_ptr<Server> server = connection->getServer();
         uint32_t room_id = std::stoi(Formatter::getStringOf(message.getParams()[0]));
         std::string room_password = Formatter::getStringOf(message.getParams()[1]);
         boost::shared_ptr<Room> room = server->getRoom_by_id(room_id);
+        if (room == nullptr) { return; };
         if (room->getPassword() == room_password || !room->isSafe())
         {
             room->join(server->getPlayer_by_id(message.getId()));
         }
-        //room_info(connection, message);
         server->update_room_info(room);
         server->update_room_list();
 
     }
-    void room_info(boost::shared_ptr<Connection> const & connection, PlayerMessage const & message)
+    void room_info(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message)
     {
         std::clog << "ROOM_INFO" << std::endl;
         boost::shared_ptr<Server> server = connection->getServer();
         uint32_t room_id = std::stoi(Formatter::getStringOf(message.getParams()[0]));
         std::string room_password = Formatter::getStringOf(message.getParams()[1]);
         boost::shared_ptr<Room> room = server->getRoom_by_id(room_id);
+
+        std::clog << "room use_count := " + std::to_string(room.use_count()) << std::endl;
 
         bool success = (room->getPassword() == room_password || !room->isSafe());
 
@@ -127,8 +131,9 @@ namespace Command {
 
         answer = Formatter::getMessageFormat(answer);
         connection->Send(Formatter::getVectorOf(answer));
+        std::clog << "room use_count := " + std::to_string(room.use_count()) << std::endl;
     }
-    void leave_room(boost::shared_ptr<Connection> const & connection, PlayerMessage const & message)
+    void leave_room(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message)
     {
         std::clog << "LEAVE_ROOM" << std::endl;
         auto server = connection->getServer();
@@ -136,18 +141,45 @@ namespace Command {
         auto room = player->getRoom();
         if (room == nullptr)
         {
+            std::clog << "FATAL: Leaving nullptr room" << std::endl;
             return;
         }
+        std::clog << "room use_count before erasing player := " + std::to_string(room.use_count()) << std::endl;
         room->erase(player);
+        player->setRoom(nullptr);
+        std::clog << "room use_count after erasing player := " + std::to_string(room.use_count()) << std::endl;
         if (room->getNumber_of_players() == 0)
         {
+            std::clog << "use_count := " + std::to_string(room.use_count()) << std::endl;
+            std::clog << "erasing room := " + std::to_string(room->getId()) << std::endl;
             server->room_erase(room);
+            std::clog << "use_count := " + std::to_string(room.use_count()) << std::endl;
         }
         else
         {
             server->update_room_info(room);
         }
         server->update_room_list();
-        //room_list(connection, message);
+        std::clog << "LEAVED_ROOM SUCCESS" << std::endl;
+        std::clog << "room use_count := " + std::to_string(room.use_count()) << std::endl;
+    }
+    void start_game(boost::shared_ptr<Room> const & room)
+    {
+        room->setStatus(Room::Status::playing);
+        PlayerMessage message;
+        for (auto player :room->getPlayers())
+        {
+            message.setId(player->getId());
+            message.setParams(std::vector <std::vector<uint8_t> >  {
+                    Formatter::getBytesOf(room->getId()),
+                    Formatter::getVectorOf(room->getPassword())
+            });
+            Command::room_info(player->getConnection(), message);
+            std::string answer = std::to_string(Command::Type::START_GAME) + " " + std::to_string(player->getCharacter());
+            answer = Formatter::getMessageFormat(answer);
+            player->getConnection()->Send(Formatter::getVectorOf(answer));
+        }
+        auto server = (*(room->getPlayers().begin()))->getConnection()->getServer();
+        server->update_room_list();
     }
 }

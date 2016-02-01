@@ -6,9 +6,10 @@
 #define MAFIA_PLAYERMESSAGE_H
 
 
-#include <stdint.h>
-#include "Server.h"
-#include "Command.h"
+#include <cstdio>
+#include <cstdint>
+#include <iostream>
+#include <vector>
 
 class PlayerMessage
 {
@@ -39,7 +40,7 @@ public:
 
     void setParam(size_t i, std::vector<uint8_t> value)
     {
-        if (i >= params.size())
+        if (i >= params.size() || i < 0)
         {
             std::clog << "setParam out of range" << std::endl;
         }
