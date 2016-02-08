@@ -35,20 +35,35 @@ void MyConnection::OnAccept( const std::string & host, uint16_t port )
 void MyConnection::OnSend( const std::vector< uint8_t > & buffer )
 {
     std::clog << "[" << __FUNCTION__ << "] " << std::to_string(buffer.size()) << " bytes" << std::endl;
-
+/*
     for( size_t x = 0; x < buffer.size(); ++x )
     {
         std::clog << std::hex << std::setfill( '0' ) <<
         std::setw( 2 ) << (int)buffer[ x ] << " ";
     }
-    std::clog << std::endl;
+    std::clog << std::endl;*/
     std::clog << "buffer = " + Formatter::getStringOf(buffer) << std::endl;
 }
 
 void MyConnection::OnRecv( std::vector< uint8_t > & buffer )
 {
     std::clog << "[" << __FUNCTION__ << "] " << std::to_string(buffer.size()) << " bytes" << std::endl;
+/*
+    auto parts = Formatter::split(buffer, ' ');
+    size_t len = std::stoi(Formatter::getStringOf(parts[0]));
 
+    if (len < buffer.size())
+    {
+        std::clog << "GLUED MESSAGE" << std::endl;
+        std::vector<uint8_t> remained(buffer.begin() + len, buffer.end());
+        OnRecv(remained);
+    }
+
+    if (len > buffer.size())
+    {
+        Recv()
+    }
+*/
     for( size_t x = 0; x < buffer.size(); ++x )
     {
         std::clog << std::hex << std::setfill( '0' ) <<
@@ -134,26 +149,32 @@ MyAcceptor::~MyAcceptor()
 MyUdpConnection::MyUdpConnection(boost::shared_ptr<Server> server, boost::shared_ptr<Hive> hive,
                                    const std::string &host, uint16_t port) : UdpConnection(hive, host, port), server(server)
 {
-    UdpConnection::SetReceiveBufferSize(32000);
+    UdpConnection::SetReceiveBufferSize(100000);
 }
 
 void MyUdpConnection::OnSend(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
-    //std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
-    //std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes sent to " << remote_endpoint << std::endl;
+
+    std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
+    std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes sent to " << remote_endpoint << std::endl;
+
 }
 
 void MyUdpConnection::OnRecv(std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
-    //std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
-    //std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes received from " << remote_endpoint << std::endl;
+
+    std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
+    std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes received from " << remote_endpoint << std::endl;
+
+    if (buffer.empty())
+        return;
 
     auto thePlayer = getServer()->getPlayer_by_address(remote_endpoint.address());
 
-    buffer.insert(buffer.begin(), thePlayer->getRoom_position());
-
-    thePlayer->setScreen(buffer);
-
+    if (thePlayer->isVisible() && buffer.size() != 0)
+    {
+        thePlayer->setScreen(buffer);
+    }
 }
 
 void MyUdpConnection::OnError(const boost::system::error_code &error, boost::asio::ip::udp::endpoint remote_endpoint)

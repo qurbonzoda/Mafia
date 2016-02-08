@@ -16,6 +16,7 @@
 class Player;
 class Server;
 class Hive;
+class RoomState;
 
 class Room : public boost::enable_shared_from_this<Room>
 {
@@ -30,25 +31,30 @@ public:
 
     void join(boost::shared_ptr< Player > player);
     size_t getId() const;
-    void setId(size_t id);
     const std::string &getPassword() const;
     void setPassword(const std::string &password);
     size_t getMax_players() const;
     void setMax_players(size_t max_players);
-    const std::string &getName() const;
-    void setName(const std::string &name);
     const std::set<boost::shared_ptr<Player>> &getPlayers() const;
-    void setPlayers(const std::set<boost::shared_ptr<Player>> &players);
     bool isSafe();
     Status getStatus() const;
     void setStatus(Status status);
     boost::shared_ptr<Server> &getServer();
     size_t getNumber_of_players();
     const std::string &getPosition_mask() const;
-    void setPosition_mask(const std::string &position_mask);
     void erase(boost::shared_ptr<Player> player);
     void StartTimer();
     void HandleTimer( const boost::system::error_code & error );
+    RoomState *getState() const;
+    void goToNextState();
+    void nominate(size_t room_position);
+    void votesAgainst(size_t amount);
+    void tryToMurder(size_t room_position);
+    void curePlayer(size_t room_position);
+    bool canSee(boost::shared_ptr<Player> player) const;
+    bool isVisible(boost::shared_ptr<Player> player) const;
+    bool canSpeak(boost::shared_ptr<Player> player) const;
+
     ~Room();
 
 private:
@@ -58,13 +64,18 @@ private:
     size_t id;
     size_t max_players;
     std::string password;
-    std::string name;
     std::string position_mask;
     std::set< boost::shared_ptr< Player > > players;
     boost::asio::deadline_timer m_timer;
     boost::posix_time::ptime m_last_time;
     int32_t m_timer_interval;
     boost::shared_ptr<Server> m_server;
+    RoomState * state = nullptr;
+    std::map< size_t, size_t > nominees;
+    std::set< size_t >murderTries;
+    size_t curedPlayer = -1;
+
+    int botCnt = 0;
 };
 
 

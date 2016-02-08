@@ -16,7 +16,7 @@ void new_thread_handler(boost::shared_ptr< Hive > hive)
 int main( int argc, char * argv[] )
 {
     boost::shared_ptr< Hive > hive( new Hive() );
-    boost::shared_ptr< Server > server(new Server(hive, "192.168.43.137", 7778 ));
+    boost::shared_ptr< Server > server(new Server(hive, "192.168.43.116", 7778 ));
     server->Start();
 
 
@@ -28,10 +28,12 @@ int main( int argc, char * argv[] )
 
     std::cin.get();
 
+
     hive->Stop();
 
     std::cin.get();
     threads.join_all();
+
 
     return 0;
 }

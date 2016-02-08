@@ -19,7 +19,7 @@ class Player : public boost::enable_shared_from_this<Player>
 public:
     enum Character
     {
-        Moderator, Detective, Doctor, Mafia, Villager, Bitch
+        Moderator, Detective, Doctor, Mafia, Villager, Not_specified
     };
     Player(size_t id);
     Player(boost::shared_ptr< boost::asio::ip::address > address);
@@ -30,45 +30,62 @@ public:
     const Character &getCharacter() const;
     void setCharacter(const Character &character);
     void setId(size_t id);
-    const std::string &getLogin() const;
-    void setLogin(const std::string &login);
+
     void setAddress(const boost::shared_ptr<boost::asio::ip::address> &address);
     bool setRoom(boost::shared_ptr< Room > room);
-    const std::string &getPassword() const;
+    void setLogin(const std::string &login);
     void setPassword(const std::string &password);
     size_t getRoom_position() const;
     void setRoom_position(size_t room_position);
     const boost::shared_ptr<MyConnection> &getConnection() const;
     void setConnection(const boost::shared_ptr<MyConnection> &connection);
     void setScreen(std::vector<uint8_t> image);
-    std::vector<uint8_t> getScreen();
+    std::vector<uint8_t> &getScreen();
+    //bool isInvisiblitySet() const;
+    //void setInvisiblitySet(bool invisiblitySet);
+
+    bool canSee();
+    bool isVisible();
+    bool canSpeak();
+
     ~Player();
 
 private:
-    Character character;
+    Character character = Character::Not_specified;
     size_t id;
     size_t room_position;
-    std::string login;
     std::string password;
+    std::string login;
+    //bool invisiblitySet = false;
+
+private:
     boost::shared_ptr< Room > room;
     boost::shared_ptr< MyConnection > connection;
     boost::shared_ptr< boost::asio::ip::address > address;
     std::vector<uint8_t> screen;
+    bool bot = false;
+    bool screenChanged = false;
+
 public:
+
+    bool isBot() const
+    {
+        return bot;
+    }
+
+    void setBot(bool bot)
+    {
+        Player::bot = bot;
+    }
     bool isScreenChanged() const
     {
         return screenChanged;
     }
 
-public:
     void setScreenChanged(bool screenChanged)
     {
         Player::screenChanged = screenChanged;
     }
-
-private:
-    bool screenChanged = false;
-
 };
 
 #endif //MAFIA_PLAYER_H

@@ -4,6 +4,7 @@
 
 #include "Player.h"
 #include "network.h"
+#include "Room.h"
 
 
 Player::Player(size_t id) : id(id)
@@ -46,29 +47,20 @@ void Player::setId(size_t id)
     this->id = id;
 }
 
-const std::string & Player::getLogin() const
-{
-    return login;
-}
-
-void Player::setLogin(const std::string &login)
-{
-    this->login = login;
-}
-
 void Player::setAddress(const boost::shared_ptr<boost::asio::ip::address> &address)
 {
     this->address = address;
 }
 
-const std::string &Player::getPassword() const
-{
-    return password;
-}
 
 void Player::setPassword(const std::string &password)
 {
     this->password = password;
+}
+
+void Player::setLogin(const std::string &login)
+{
+    Player::login = login;
 }
 
 size_t Player::getRoom_position() const
@@ -98,11 +90,59 @@ Player::~Player()
 
 void Player::setScreen(std::vector<uint8_t> image)
 {
+    screenChanged = false;
     screen = image;
     screenChanged = true;
+/*
+    if (!isBot())
+        for (auto player : room->getPlayers())
+        {
+            if (player->isBot())
+                player->setScreenChanged(true);
+        }
+*/
 }
 
-std::vector<uint8_t> Player::getScreen()
+std::vector<uint8_t> &Player::getScreen()
 {
     return screen;
 }
+
+bool Player::canSee()
+{
+    if (character == Character:: Not_specified)
+    {
+        return true;
+    }
+    return room->canSee(shared_from_this());
+}
+
+bool Player::isVisible()
+{
+    if (character == Character::Not_specified)
+    {
+        return true;
+    }
+    return room->isVisible(shared_from_this());
+}
+
+bool Player::canSpeak()
+{
+    if (character == Not_specified)
+    {
+        return true;
+    }
+    return room->canSpeak(shared_from_this());
+}
+/*
+bool Player::isInvisiblitySet() const
+{
+    return Player::invisiblitySet;
+}
+
+void Player::setInvisiblitySet(bool invisiblitySet)
+{
+    Player::invisiblitySet = invisiblitySet;
+
+}
+*/

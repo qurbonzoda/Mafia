@@ -4,11 +4,14 @@
 
 #include <boost/bind/placeholders.hpp>
 #include <boost/bind/bind.hpp>
+#include <random>
+#include <algorithm>
 #include "MyNetwork.h"
 #include "Server.h"
 #include "Room.h"
 #include "Player.h"
 #include "Command.h"
+#include "RoomState.h"
 
 Room::Room(size_t id, size_t max_players, std::string password, boost::shared_ptr<Server> server) : id(id), max_players(max_players),
                                                                                                     password(password),
@@ -29,42 +32,61 @@ Room::Room(uint32_t id, boost::shared_ptr<Server> server) : id(id), position_mas
 
 void Room::join(boost::shared_ptr<Player> player)
 {
+    // insert player
     players.insert(player);
     player->setRoom(shared_from_this());
     assert(players.size() <= max_players);
 
-    for (int i = 0; i < position_mask.length(); ++i)
+    if (getNumber_of_players() == 1)
     {
-        if (position_mask[i] == '0')
-        {
-            player->setRoom_position(i);
-            position_mask[i] = '1';
-            break;
-        }
+        StartTimer();
     }
 
+    // set room position
+    size_t i = position_mask.find('0');
+    player->setRoom_position(i);
+    position_mask[i] = '1';
+
     if (players.size() == max_players) {
+
+
+        // reset room positions so that players were consequently
         for (auto player : players)
         {
             size_t playerPosition = player->getRoom_position();
-            for (int i = 0; i < playerPosition; ++i)
+            size_t i = position_mask.find('0');
+            if (i < playerPosition)
             {
-                if (position_mask[i] == '0') {
-                    player->setRoom_position(i);
-                    position_mask[i] = '1';
-                    position_mask[playerPosition] = '0';
-                    break;
-                }
+                player->setRoom_position(i);
+                position_mask[i] = '1';
+                position_mask[playerPosition] = '0';
             }
         }
-        /*
-         *  shuffle
-         */
+
+        // shuffle
         std::vector< boost::shared_ptr<Player> > list(players.begin(), players.end());
-        std::random_shuffle ( list.begin(), list.end() );
-        /*
-         *  character assignment
-         */
+
+        srand(time(0));
+        std::random_shuffle(list.begin(), list.end());
+
+        // no bot is Moderator
+        for (int k = 0; k < list.size(); k++)
+        {
+            if (!list[k]->isBot())
+            {
+                std::swap(list[k], list[0]);
+                break;
+            }
+        }
+
+        for (int k = 0; k < list.size(); ++k)
+        {
+            list[k]->setRoom_position(k);
+        }
+
+
+
+        // character assignment
         size_t mafiaNumber = (max_players - 2) / 3;
         auto it = list.begin();
         (*it++)->setCharacter(Player::Character::Moderator);
@@ -72,12 +94,28 @@ void Room::join(boost::shared_ptr<Player> player)
         (*it++)->setCharacter(Player::Character::Doctor);
         for (int j = 0; j < mafiaNumber; ++j)
         {
+            //std::clog << "MAfia room position " + std::to_string((*it)->getRoom_position()) << std::endl;
             (*it++)->setCharacter(Player::Character::Mafia);
+
         }
         for (; it != list.end(); it++)
         {
             (*it)->setCharacter(Player::Character::Villager);
         }
+
+        // shuffle
+        //srand(time(0));
+
+        std::random_shuffle(list.begin() + 1, list.end());
+        for (int k = 1; k < list.size(); ++k)
+        {
+            list[k]->setRoom_position(k);
+        }
+
+        // build game state chain
+        state = RoomState::buildStateChain(shared_from_this());
+
+        // start game
         Command::start_game(shared_from_this());
 
     }
@@ -86,11 +124,6 @@ void Room::join(boost::shared_ptr<Player> player)
 size_t Room::getId() const
 {
     return id;
-}
-
-void Room::setId(size_t id)
-{
-    Room::id = id;
 }
 
 const std::string &Room::getPassword() const
@@ -114,24 +147,10 @@ void Room::setMax_players(size_t max_players)
     Room::max_players = max_players;
 }
 
-const std::string &Room::getName() const
-{
-    return name;
-}
-
-void Room::setName(const std::string &name)
-{
-    Room::name = name;
-}
 
 const std::set<boost::shared_ptr<Player>> &Room::getPlayers() const
 {
     return players;
-}
-
-void Room::setPlayers(const std::set<boost::shared_ptr<Player>> &players)
-{
-    Room::players = players;
 }
 
 Room::Status Room::getStatus() const
@@ -159,21 +178,11 @@ const std::string &Room::getPosition_mask() const
     return position_mask;
 }
 
-void Room::setPosition_mask(const std::string &position_mask)
-{
-    Room::position_mask = position_mask;
-}
-
 void Room::erase(boost::shared_ptr<Player> player)
 {
     position_mask[ player->getRoom_position() ] = '0';
     players.erase(player);
     player->setRoom(nullptr);
-}
-
-Room::~Room()
-{
-    std::clog << "[" << __FUNCTION__ << "] " << std::endl;
 }
 
 void Room::StartTimer()
@@ -188,18 +197,90 @@ void Room::StartTimer()
 void Room::HandleTimer(const boost::system::error_code &error)
 {
     //std::clog << "Room::[" << __FUNCTION__ << "] " << std::endl;
+
+
+    botCnt++;
+
+    if (botCnt == players.size())
+    {
+        botCnt = 0;
+    }
+
     if (!error)
     {
+        int k = 0;
+        std::vector<uint8_t>datagram;
+
         for (auto player : players)
         {
-            if (player->isScreenChanged() && !player->getScreen().empty())
+            if (k == botCnt && player->isBot())
             {
+                player->setScreenChanged(true);
+            }
+            k++;
+
+            if (player->isScreenChanged())
+            {
+                uint16_t length = player->getScreen().size();
+
+                assert(length != 0);
+                assert(length > 1000);
+
+                datagram.push_back((length >> 8));
+                datagram.push_back((length & 0xff));
+
+                assert((datagram[datagram.size() - 2] << 8) + datagram.back() == length);
+
+                datagram.push_back(player->getRoom_position());
+
+                assert(datagram.back() == player->getRoom_position());
+                assert(datagram.back() < Room::max_players);
+
+                datagram.insert(datagram.end(), player->getScreen().begin(), player->getScreen().end());
+
+                if (!player->isBot())
+                    player->setScreenChanged(false);
+            }
+/*
+            if (!player->isVisible())
+            {
+                if (!player->isInvisiblitySet())
+                {
+                    player->setScreen(m_server->getInvisibilityImage());
+                }
+                player->setInvisiblitySet(true);
+            }
+            else
+            {
+                player->setInvisiblitySet(false);
+            }
+
+            if ((player->isScreenChanged()) && !(player->getScreen().empty()))
+            {
+                auto playerScreen = player->getScreen();
+                playerScreen.insert(playerScreen.begin(), player->getRoom_position());
+
+                assert(playerScreen[0] < Room::MAX_POSSIBLE_PLAYERS);
+                assert(playerScreen[0] == player->getRoom_position());
+
                 for (auto anotherPlayer : players)
                 {
-                    m_server->getUdp()->Send(player->getScreen(),
-                                             boost::asio::ip::udp::endpoint(*(anotherPlayer->getAddress()), 1010));
+                    if (anotherPlayer->canSee())
+                    {
+                        m_server->getUdp()->Send(playerScreen,
+                                                 boost::asio::ip::udp::endpoint(*(anotherPlayer->getAddress()), 1010));
+                    }
                 }
                 player->setScreenChanged(false);
+            }
+*/
+        }
+
+        for (auto player : players)
+        {
+            if (!datagram.empty())
+            {
+                m_server->getUdp()->Send(datagram, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
             }
         }
         if (getNumber_of_players() != 0)
@@ -213,3 +294,142 @@ boost::shared_ptr<Server> &Room::getServer()
 {
     return m_server;
 }
+RoomState *Room::getState() const
+{
+    return state;
+}
+
+void Room::goToNextState()
+{
+
+    if (state->getNext()->getName() == "Voting")
+    {
+        RoomState::buildVotingChain(state->getNext(), nominees);
+    }
+    else if (state->getName().find("Voting_against") != std::string::npos
+        && state->getNext()->getName() == "Night")
+    {
+        std::pair<size_t, size_t>max1 = {-1, -1};
+        std::pair<size_t, size_t>max2 = {-1, -1};
+
+        for (auto nominee : nominees)
+        {
+            if (nominee.second > max1.second)
+            {
+                max2 = max1;
+                max1 = nominee;
+            }
+            else if (nominee.second > max2.second)
+            {
+                max2 = nominee;
+            }
+        }
+        assert(max1.second >= max2.second);
+
+        if (max1.second != max2.second)
+        {
+            RoomState::buildMurderChain(state, max1.first);
+        }
+        nominees.clear();
+    }
+    else if (state->getName().find("Doctor") != std::string::npos)
+    {
+        if (murderTries.size() == 1 && *murderTries.begin() != curedPlayer)
+        {
+            RoomState::buildMurderChain(state, *murderTries.begin());
+        }
+        murderTries.clear();
+        curedPlayer = -1;
+    }
+    state = state->getNext();
+    std::clog << state->getName() << std::endl;
+    for (auto player : players)
+    {
+        std::clog << "player #" << std::to_string(player->getRoom_position()) << std::endl;
+        std::clog << "Character: " << std::to_string(player->getCharacter()) << std::endl;
+        std::clog << "isVisible: " << std::to_string(player->isVisible()) << std::endl;
+        std::clog << "canSee: " << std::to_string(player->canSee()) << std::endl;
+        std::clog << "canSpeak: " << std::to_string(player->canSpeak()) << std::endl;
+        std::clog << std::endl;
+
+        if (player->isVisible() && player->isBot())
+        {
+            player->setScreen(m_server->getBotScreen());
+        }
+        if (!player->isVisible())
+        {
+            player->setScreen(m_server->getInvisibilityImage());
+        }
+    }
+    std::clog << std::endl;
+}
+
+void Room::nominate(size_t room_position)
+{
+    nominees[room_position] = 0;
+}
+
+void Room::votesAgainst(size_t amount)
+{
+    std::string stateName = state->getName();
+    size_t tmp = stateName.find_last_of('_');
+    assert(tmp != std::string::npos);
+    size_t room_position = std::stoi(stateName.substr(tmp + 1));
+    nominees[room_position] = amount;
+}
+
+void Room::tryToMurder(size_t room_position)
+{
+    murderTries.insert(room_position);
+}
+
+void Room::curePlayer(size_t room_position)
+{
+    curedPlayer = room_position;
+}
+
+bool Room::canSee(boost::shared_ptr<Player> player) const
+{
+    if (player->getCharacter() == Player::Character::Not_specified)
+    {
+        return true;
+    }
+    return state->canSee(player);
+}
+
+
+bool Room::isVisible(boost::shared_ptr<Player> player) const
+{
+    if (player->getCharacter() == Player::Character::Not_specified)
+    {
+        return true;
+    }
+    return state->isVisible(player);
+}
+
+bool Room::canSpeak(boost::shared_ptr<Player> player) const
+{
+    if (player->getCharacter() == Player::Character::Not_specified)
+    {
+        return true;
+    }
+    return state->canSpeak(player);
+}
+
+Room::~Room()
+{
+    std::clog << "[" << __FUNCTION__ << "] " << std::endl;
+
+    if (state != nullptr)
+    {
+        RoomState *head = state->getNext();
+        while (head != state)
+        {
+            RoomState *tmp = head->getNext();
+            delete head;
+            head = tmp;
+        }
+        delete state;
+    }
+}
+

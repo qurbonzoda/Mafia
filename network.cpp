@@ -371,7 +371,7 @@ bool Connection::HasError()
 UdpConnection::UdpConnection(boost::shared_ptr<Hive> hive, std::string ip_address, uint16_t port) :
         m_socket(hive->GetService(), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port)), m_timer(hive->GetService())
 {
-    m_receive_buffer_size = 4096;
+    m_receive_buffer_size = 200000;
     m_timer_interval = 5000;
     m_error_state = 0;
     server_endpoint = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port);
@@ -428,6 +428,10 @@ void UdpConnection::HandleSend(const boost::system::error_code &error, const std
 
 void UdpConnection::Send(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
+    if (remote_endpoint.address() == boost::asio::ip::address::from_string("192.168.2.10") || buffer.size() < 10)
+    {
+        return;
+    }
     m_socket.async_send_to(boost::asio::buffer(buffer), remote_endpoint, boost::bind(&UdpConnection::HandleSend, shared_from_this(), boost::asio::placeholders::error, buffer, remote_endpoint));
 }
 

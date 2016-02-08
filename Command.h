@@ -15,7 +15,8 @@ namespace Command
 {
     enum Type
     {
-        PLAYER_ID, ROOM_INFO, START_GAME, AUTHORISATION, NEW_ROOM, ENTER_ROOM, LEAVE_ROOM, ROOMS_LIST
+        PLAYER_ID, ROOM_INFO, START_GAME, AUTHORISATION, NEW_ROOM, ENTER_ROOM, LEAVE_ROOM,
+        ROOMS_LIST, NEXT, GAME_INFO, END_GAME, SELECT
     };
     void execute(boost::shared_ptr<MyConnection> const &connection, PlayerMessage const &message);
     void authorization(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message);
@@ -26,5 +27,9 @@ namespace Command
     void room_info(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message);
     void leave_room(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message);
     void start_game(boost::shared_ptr<Room> const & room);
+    bool sendTo(boost::shared_ptr<MyConnection> const & connection, std::vector<uint8_t> const & buffer);
+    void next(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message);
+    void game_info(boost::shared_ptr<MyConnection> const & connection);
+    void select(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message);
 };
 #endif //MAFIA_COMMAND_H

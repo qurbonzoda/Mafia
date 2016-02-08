@@ -16,36 +16,6 @@ std::vector<uint8_t> Formatter::getVectorOf(std::string const & str)
     return result;
 }
 
-std::vector<uint8_t> Formatter::getMessageFormat(uint16_t len, uint8_t command, std::vector<uint8_t> const &message)
-{
-    std::vector<uint8_t> result;
-    result.push_back(uint8_t(len >> 8));
-    result.push_back((uint8_t)len);
-    result.push_back(command);
-    result.insert(result.end(), result.begin(), result.end());
-    return result;
-}
-std::vector<uint8_t> Formatter::getBytesOf(uint64_t value, size_t size)
-{
-    std::vector<uint8_t> result;
-    for (int i = (int)size - 1; i >= 0; --i)
-    {
-        result.push_back(value >> (i * 8));
-    }
-    return result;
-}
-
-uint64_t Formatter::getValueOf(std::vector<uint8_t> const &bytes)
-{
-    uint64_t value = 0;
-    for (int i = 0; i < bytes.size(); ++i)
-    {
-        value <<= 8;
-        value += bytes[i];
-    }
-    return value;
-}
-
 std::vector<std::vector<uint8_t> > Formatter::split(std::vector<uint8_t> const &bytes, uint8_t separator)
 {
     std::vector< std::vector<uint8_t> > result;
@@ -76,7 +46,16 @@ std::string Formatter::getMessageFormat(size_t command, size_t id)
 std::string Formatter::getMessageFormat(std::string &message)
 {
     message = " " + message;
-    size_t len = message.length();
-    message = std::to_string(len + std::to_string(len).length()) + message;
-    return message;
+
+    switch (message.length())
+    {
+        case 9:
+            return "11" + message;
+        case 98:
+            return "101" + message;
+        default:
+            size_t len = message.length() + std::to_string(message.length()).length();
+            return std::to_string(len) + message;
+    }
+
 }

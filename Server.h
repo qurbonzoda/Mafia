@@ -46,7 +46,7 @@ public:
     boost::shared_ptr<Player> getPlayer_by_connection(boost::shared_ptr<Connection> connection);
     boost::shared_ptr<Player> getPlayer_by_address(const boost::asio::ip::address &address);
     boost::shared_ptr<Room> create_new_room_instance();
-
+    void add_bots();
 public:
     uint32_t getRoom_id_counter()
     {
@@ -75,12 +75,23 @@ public:
     {
         return udp;
     }
+    const std::vector<uint8_t> &getInvisibilityImage() const
+    {
+        return invisibilityImage;
+    }
+
+    const std::vector<uint8_t> &getBotScreen() const
+    {
+        return botScreen;
+    }
 
 private:
     std::set< boost::shared_ptr<Room> > rooms;
     std::map<size_t, boost::shared_ptr<Player> > players;
     volatile uint32_t player_id_counter = 0;
     volatile uint32_t room_id_counter = 0;
+    std::vector<uint8_t> invisibilityImage;
+    std::vector<uint8_t> botScreen;
     std::string ip_address;
     uint16_t port;
     boost::shared_ptr<Hive> hive;

@@ -3,6 +3,7 @@
 //
 
 #include <boost/thread/pthread/mutex.hpp>
+#include <fstream>
 #include "Server.h"
 #include "PlayerMessage.h"
 #include "Command.h"
@@ -44,11 +45,7 @@ boost::shared_ptr<Player> Server::create_new_player_instance()
 boost::shared_ptr<Room> Server::create_new_room_instance()
 {
     boost::shared_ptr<Room> room(new Room(++room_id_counter, shared_from_this()));
-    std::clog << "room use_count after creating := " + std::to_string(room.use_count()) << std::endl;
-    room->StartTimer();
-    std::clog << "room use_count after StartTimer := " + std::to_string(room.use_count()) << std::endl;
     rooms.insert(room);
-    std::clog << "room use_count after insertion := " + std::to_string(room.use_count()) << std::endl;
     std::clog << "create_new_room_instance: room_id_counter = " << room_id_counter << std::endl;
     return room;
 }
@@ -101,7 +98,7 @@ void Server::update_room_list()
 
 boost::shared_ptr<Player> Server::getPlayer_by_connection(boost::shared_ptr<Connection> connection)
 {
-    std::clog << "[ " << __FUNCTION__ << " ]" << std::endl;
+    //std::clog << "[ " << __FUNCTION__ << " ]" << std::endl;
     for (auto player : players)
     {
         if (player.second->getConnection() == connection)
@@ -139,7 +136,7 @@ boost::shared_ptr<Player> Server::getPlayer_by_address(const boost::asio::ip::ad
             return player.second;
         }
     }
-    std::clog << address << " FATAL No such room endpoint" << std::endl;
+    std::clog << address << " FATAL No such player endpoint" << std::endl;
 }
 
 void Server::delete_player(boost::shared_ptr<Player> player)
@@ -170,4 +167,49 @@ void Server::Start()
     udp.reset(new MyUdpConnection( shared_from_this(), hive, ip_address, port ));
     udp->StartRecv();
     //udp->StartTimer();
+
+    // reading invisibility image
+    std::ifstream invisibleSource;
+    invisibleSource.open("/home/qurbonzoda/Programming/ClionProjects/Mafia/invisibility.jpg", std::ios_base::binary);
+
+    invisibleSource.seekg(0, invisibleSource.end);
+    size_t imageSize = invisibleSource.tellg();
+    invisibleSource.seekg(0, invisibleSource.beg);
+
+    invisibilityImage.resize(imageSize);
+    invisibleSource.read((char *) &invisibilityImage[0], invisibilityImage.size());
+
+    // reading botScreen
+    std::ifstream botSource;
+    botSource.open("/home/qurbonzoda/Programming/ClionProjects/Mafia/bot.jpg", std::ios_base::binary);
+
+    botSource.seekg(0, botSource.end);
+    imageSize = botSource.tellg();
+    botSource.seekg(0, botSource.beg);
+
+    botScreen.resize(imageSize);
+    botSource.read((char *) &botScreen[0], botScreen.size());
+
+    add_bots();
+}
+
+void Server::add_bots()
+{
+    auto room = create_new_room_instance();
+    room->setMax_players(9);
+    room->setPassword("nopass");
+
+
+    boost::shared_ptr<ip::address> address(new ip::address(boost::asio::ip::address::from_string("192.168.2.10")));
+
+    for (int i = 0; i < 7; i++)
+    {
+        auto player = create_new_player_instance();
+        boost::shared_ptr< MyConnection > new_connection( new MyConnection( shared_from_this(), getHive() ) );
+        player->setConnection(new_connection);
+        player->setAddress(address);
+        player->setBot(true);
+        room->join(player);
+        player->setScreen(botScreen);
+    }
 }
