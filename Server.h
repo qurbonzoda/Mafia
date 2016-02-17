@@ -20,26 +20,18 @@ class MyAcceptor;
 class Server : public boost::enable_shared_from_this<Server>
 {
 public:
-    /*
-    static Server* getInstance(boost::shared_ptr< Hive > hive, std::string ip_address, uint16_t port)
-    {
-        static Server *instance = new Server(hive, ip_address, port);
-        return instance;
-    }
-     */
-public:
     Server(boost::shared_ptr< Hive > hive, std::string ip_address, uint16_t port);
     Server(Server const&) = delete;
     void operator=(Server const&) = delete;
 
+private:
     boost::shared_ptr<Player> create_new_player_instance();
 
 public:
     void Start();
     boost::shared_ptr<Player> get_or_create_player(boost::shared_ptr<boost::asio::ip::address> const &address);
     boost::shared_ptr<Room> getRoom_by_id(uint32_t id);
-    uint32_t getId_by_player(boost::shared_ptr<Player> player);
-    void room_erase(boost::shared_ptr<Room> room);
+    void delete_room(boost::shared_ptr<Room> room);
     void delete_player(boost::shared_ptr<Player> player);
     void update_room_list();
     void update_room_info(boost::shared_ptr<Room> room);
@@ -48,30 +40,19 @@ public:
     boost::shared_ptr<Room> create_new_room_instance();
     void add_bots();
 public:
-    uint32_t getRoom_id_counter()
-    {
-        return room_id_counter;
-    }
-
-    const boost::shared_ptr<Hive> &getHive()
+    const boost::shared_ptr<Hive> &getHive() const
     {
         return hive;
     }
-
-    const std::map<size_t, boost::shared_ptr<Player>> &getPlayers()
-    {
-        return players;
-    }
-
-    const std::set<boost::shared_ptr<Room>> &getRooms()
+    const std::set<boost::shared_ptr<Room>> &getRooms() const
     {
         return rooms;
     }
-    boost::shared_ptr<Player> getPlayer_by_id(uint32_t id)
+    boost::shared_ptr<Player> &getPlayer_by_id(uint32_t id)
     {
         return players.at(id);
     }
-    boost::shared_ptr<MyUdpConnection> getUdp()
+    const boost::shared_ptr<MyUdpConnection> &getUdp()  const
     {
         return udp;
     }

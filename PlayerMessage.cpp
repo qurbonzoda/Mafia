@@ -11,12 +11,10 @@ PlayerMessage::PlayerMessage(std::vector<uint8_t> const &message)
     if (parts.size() < 3)
     {
         throw "undefined message";
-        std::clog << "FATAL Message!!" << std::endl;
-        return;
     }
-    len = std::stoi(Formatter::getStringOf(parts[0]));
-    id = std::stoi(Formatter::getStringOf(parts[1]));
-    command = std::stoi(Formatter::getStringOf(parts[2]));
+    len = std::stoi(Formatter::stringOf(parts[0]));
+    id = std::stoi(Formatter::stringOf(parts[1]));
+    command = std::stoi(Formatter::stringOf(parts[2]));
     this->params = std::vector< std::vector<uint8_t> >(parts.begin() + 3, parts.end());
 }
 

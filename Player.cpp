@@ -10,14 +10,14 @@
 Player::Player(size_t id) : id(id)
 {
 }
-Player::Player(boost::shared_ptr<boost::asio::ip::address> address) : address(address)
+Player::Player(const boost::shared_ptr<boost::asio::ip::address> &address) : address(address)
 {
 }
 size_t Player::getId()
 {
     return id;
 }
-boost::shared_ptr<boost::asio::ip::address> Player::getAddress()
+boost::shared_ptr<boost::asio::ip::address> Player::getAddress() const
 {
     return address;
 }
@@ -26,7 +26,7 @@ boost::shared_ptr<Room> Player::getRoom()
     return room;
 }
 
-bool Player::setRoom(boost::shared_ptr<Room> room)
+bool Player::setRoom(boost::shared_ptr<Room> const &room)
 {
     this->room = room;
     return false;
@@ -88,7 +88,7 @@ Player::~Player()
     std::clog << "[" << __FUNCTION__ << "] " << std::endl;
 }
 
-void Player::setScreen(std::vector<uint8_t> image)
+void Player::setScreen(std::vector<uint8_t> const &image)
 {
     screenChanged = false;
     screen = image;
@@ -103,12 +103,12 @@ void Player::setScreen(std::vector<uint8_t> image)
 */
 }
 
-std::vector<uint8_t> &Player::getScreen()
+const std::vector<uint8_t> &Player::getScreen() const
 {
     return screen;
 }
 
-bool Player::canSee()
+bool Player::canSee() const
 {
     if (character == Character:: Not_specified)
     {
@@ -117,7 +117,7 @@ bool Player::canSee()
     return room->canSee(shared_from_this());
 }
 
-bool Player::isVisible()
+bool Player::isVisible()const
 {
     if (character == Character::Not_specified)
     {
@@ -126,7 +126,7 @@ bool Player::isVisible()
     return room->isVisible(shared_from_this());
 }
 
-bool Player::canSpeak()
+bool Player::canSpeak() const
 {
     if (character == Not_specified)
     {

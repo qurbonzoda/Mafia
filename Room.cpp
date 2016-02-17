@@ -13,7 +13,7 @@
 #include "Command.h"
 #include "RoomState.h"
 
-Room::Room(size_t id, size_t max_players, std::string password, boost::shared_ptr<Server> server) : id(id), max_players(max_players),
+Room::Room(size_t id, size_t max_players, std::string &password, boost::shared_ptr<Server> const &server) : id(id), max_players(max_players),
                                                                                                     password(password),
                                                                                                     position_mask("00000000000"),
                                                                                                     m_timer(server->getHive()->GetService()),
@@ -23,14 +23,14 @@ Room::Room(size_t id, size_t max_players, std::string password, boost::shared_pt
     assert(max_players >= MIN_POSSIBLE_PLAYERS && max_players <= MAX_POSSIBLE_PLAYERS);
 }
 
-Room::Room(uint32_t id, boost::shared_ptr<Server> server) : id(id), position_mask("00000000000"),
+Room::Room(uint32_t id, boost::shared_ptr<Server> const &server) : id(id), position_mask("00000000000"),
                                                             m_timer(server->getHive()->GetService()),
                                                             m_server(server),
                                                             m_timer_interval(50)
 {
 }
 
-void Room::join(boost::shared_ptr<Player> player)
+void Room::join(boost::shared_ptr<Player> &player)
 {
     // insert player
     players.insert(player);
@@ -163,12 +163,12 @@ void Room::setStatus(Room::Status status)
     Room::status = status;
 }
 
-bool Room::isSafe()
+bool Room::isSafe() const
 {
     return password != "nopass";
 }
 
-size_t Room::getNumber_of_players()
+size_t Room::getNumber_of_players() const
 {
     return players.size();
 }
@@ -178,7 +178,7 @@ const std::string &Room::getPosition_mask() const
     return position_mask;
 }
 
-void Room::erase(boost::shared_ptr<Player> player)
+void Room::erase(boost::shared_ptr<Player> &player)
 {
     position_mask[ player->getRoom_position() ] = '0';
     players.erase(player);
@@ -309,11 +309,12 @@ void Room::goToNextState()
     else if (state->getName().find("Voting_against") != std::string::npos
         && state->getNext()->getName() == "Night")
     {
-        std::pair<size_t, size_t>max1 = {-1, -1};
-        std::pair<size_t, size_t>max2 = {-1, -1};
+        std::pair<size_t, size_t>max1 = {0, 0};
+        std::pair<size_t, size_t>max2 = {0, 0};
 
         for (auto nominee : nominees)
         {
+            std::clog << "nominee: " << nominee.first << " " << nominee.second << std::endl;
             if (nominee.second > max1.second)
             {
                 max2 = max1;
@@ -329,6 +330,11 @@ void Room::goToNextState()
         if (max1.second != max2.second)
         {
             RoomState::buildMurderChain(state, max1.first);
+            std::clog << "After voting died player " + std::to_string(max1.first) << std::endl;
+        }
+        else {
+            std::clog << "After voting equal max votes have " + std::to_string(max2.first)
+                         + " and " + std::to_string(max1.first) << std::endl;
         }
         nominees.clear();
     }
@@ -337,9 +343,47 @@ void Room::goToNextState()
         if (murderTries.size() == 1 && *murderTries.begin() != curedPlayer)
         {
             RoomState::buildMurderChain(state, *murderTries.begin());
+            std::clog << "After curing died player " + std::to_string(*murderTries.begin()) << std::endl;
         }
         murderTries.clear();
         curedPlayer = -1;
+    }
+    if (state->getNext()->getName().find("Was_murdered_player_") != std::string::npos)
+    {
+        beforeAssasiation = state;
+    }
+    else if (state->getName().find("Murdered_player's_speech") != std::string::npos)
+    {
+        std::string stateName = beforeAssasiation->getNext()->getName();
+        size_t from = stateName.find_last_of('_');
+
+        assert(from != std::string::npos);
+
+        size_t room_position = std::stoi(stateName.substr(from + 1));
+
+        RoomState *tmp = state->getNext();
+        state = beforeAssasiation;
+        delete state->getNext()->getNext();
+        delete state->getNext();
+        state->setNext(tmp);
+
+        RoomState *expiredState = state;
+        while (expiredState->getNext()->getName().find("Speaking_player_" + std::to_string(room_position)) == std::string::npos) {
+            expiredState = expiredState->getNext();
+        }
+        tmp = expiredState->getNext()->getNext()->getNext();
+        delete expiredState->getNext()->getNext();
+        delete expiredState->getNext();
+        expiredState->setNext(tmp);
+
+        for (auto player : players)
+        {
+            if (player->getRoom_position() == room_position)
+            {
+                player->setCharacter(Player::Character::Dead);
+            }
+        }
+
     }
     state = state->getNext();
     std::clog << state->getName() << std::endl;
@@ -366,6 +410,7 @@ void Room::goToNextState()
 
 void Room::nominate(size_t room_position)
 {
+    std::clog << "[ " << __FUNCTION__ << " ]" + std::to_string(room_position) << std::endl;
     nominees[room_position] = 0;
 }
 
@@ -376,19 +421,23 @@ void Room::votesAgainst(size_t amount)
     assert(tmp != std::string::npos);
     size_t room_position = std::stoi(stateName.substr(tmp + 1));
     nominees[room_position] = amount;
+    std::clog << "[ " << __FUNCTION__ << " ] " + std::to_string(room_position)
+                                         + ": " + std::to_string(amount) << std::endl;
 }
 
 void Room::tryToMurder(size_t room_position)
 {
+    std::clog << "[ " << __FUNCTION__ << " ]" + std::to_string(room_position) << std::endl;
     murderTries.insert(room_position);
 }
 
 void Room::curePlayer(size_t room_position)
 {
+    std::clog << "[ " << __FUNCTION__ << " ]" + std::to_string(room_position) << std::endl;
     curedPlayer = room_position;
 }
 
-bool Room::canSee(boost::shared_ptr<Player> player) const
+bool Room::canSee(boost::shared_ptr<const Player> player) const
 {
     if (player->getCharacter() == Player::Character::Not_specified)
     {
@@ -398,7 +447,7 @@ bool Room::canSee(boost::shared_ptr<Player> player) const
 }
 
 
-bool Room::isVisible(boost::shared_ptr<Player> player) const
+bool Room::isVisible(boost::shared_ptr<const Player> player) const
 {
     if (player->getCharacter() == Player::Character::Not_specified)
     {
@@ -407,7 +456,7 @@ bool Room::isVisible(boost::shared_ptr<Player> player) const
     return state->isVisible(player);
 }
 
-bool Room::canSpeak(boost::shared_ptr<Player> player) const
+bool Room::canSpeak(boost::shared_ptr<const Player> player) const
 {
     if (player->getCharacter() == Player::Character::Not_specified)
     {

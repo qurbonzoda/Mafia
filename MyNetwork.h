@@ -37,6 +37,7 @@ private:
 class MyConnection : public Connection
 {
 private:
+    std::vector<uint8_t> carry;
     void OnAccept( const std::string & host, uint16_t port );
     void OnSend( const std::vector< uint8_t > & buffer );
     void OnRecv( std::vector< uint8_t > & buffer );

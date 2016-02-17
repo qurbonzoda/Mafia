@@ -73,6 +73,7 @@ private:
     uint32_t id = 0;
     size_t command = 0;
     std::vector< std::vector<uint8_t> > params;
+
 };
 
 

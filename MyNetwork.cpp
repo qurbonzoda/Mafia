@@ -23,12 +23,14 @@ void MyConnection::OnAccept( const std::string & host, uint16_t port )
 
     boost::shared_ptr<Player> this_player = getServer()->get_or_create_player(address);
     this_player->setConnection(shared_from_this());
-    uint32_t id = getServer()->getId_by_player(this_player);
+    uint32_t id = this_player->getId();
 
-    std::string message = Formatter::getMessageFormat(Command::Type::PLAYER_ID, id);
+    std::string message = std::to_string(Command::Type::PLAYER_ID) + " " + std::to_string(id);
+
+    message = Formatter::getMessageFormat(message);
     std::clog << "new player id " << id << std::endl;
 
-    Send(Formatter::getVectorOf(message));
+    Send(Formatter::vectorOf(message));
     Recv();
 }
 
@@ -42,35 +44,45 @@ void MyConnection::OnSend( const std::vector< uint8_t > & buffer )
         std::setw( 2 ) << (int)buffer[ x ] << " ";
     }
     std::clog << std::endl;*/
-    std::clog << "buffer = " + Formatter::getStringOf(buffer) << std::endl;
+    std::clog << "buffer = " + Formatter::stringOf(buffer) << std::endl;
 }
 
 void MyConnection::OnRecv( std::vector< uint8_t > & buffer )
 {
     std::clog << "[" << __FUNCTION__ << "] " << std::to_string(buffer.size()) << " bytes" << std::endl;
-/*
-    auto parts = Formatter::split(buffer, ' ');
-    size_t len = std::stoi(Formatter::getStringOf(parts[0]));
+
+
+    if (!carry.empty())
+    {
+        buffer.insert(buffer.begin(), carry.begin(), carry.end());
+        carry.clear();
+    }
+
+    size_t separator = std::find(buffer.begin(), buffer.end(), ' ') - buffer.begin();
+    size_t len = std::stoul(Formatter::stringOf(std::vector<uint8_t> (buffer.begin(), buffer.begin() + separator)));
+
 
     if (len < buffer.size())
     {
-        std::clog << "GLUED MESSAGE" << std::endl;
-        std::vector<uint8_t> remained(buffer.begin() + len, buffer.end());
-        OnRecv(remained);
+        std::clog << "GLUED MESSAGES" << std::endl;
+        carry.assign(buffer.begin() + len, buffer.end());
+        buffer.resize(len);
     }
 
     if (len > buffer.size())
     {
-        Recv()
+        carry = buffer;
+        Recv(len - buffer.size());
+        return;
     }
-*/
+
     for( size_t x = 0; x < buffer.size(); ++x )
     {
         std::clog << std::hex << std::setfill( '0' ) <<
         std::setw( 2 ) << (int)buffer[ x ] << " ";
     }
     std::clog << std::endl;
-    std::clog << "buffer = " + Formatter::getStringOf(buffer) << std::endl;
+    std::clog << "buffer = " + Formatter::stringOf(buffer) << std::endl;
     try
     {
         PlayerMessage playerMessage(buffer);
@@ -83,6 +95,20 @@ void MyConnection::OnRecv( std::vector< uint8_t > & buffer )
     }
     catch (...)
     {
+        // ignore for now
+    }
+
+    if (!carry.empty())
+    {
+        separator = std::find(carry.begin(), carry.end(), ' ') - carry.begin();
+        len = std::stoul(Formatter::stringOf(std::vector<uint8_t> (carry.begin(), carry.begin() + separator)));
+        if (len <= carry.size())
+        {
+            buffer = carry;
+            carry.clear();
+            OnRecv(buffer);
+            return;
+        }
     }
 
     // Start the next receive
@@ -154,24 +180,24 @@ MyUdpConnection::MyUdpConnection(boost::shared_ptr<Server> server, boost::shared
 
 void MyUdpConnection::OnSend(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
-
+/*
     std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
     std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes sent to " << remote_endpoint << std::endl;
-
+*/
 }
 
 void MyUdpConnection::OnRecv(std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
-
+/*
     std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
     std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes received from " << remote_endpoint << std::endl;
-
+*/
     if (buffer.empty())
         return;
 
     auto thePlayer = getServer()->getPlayer_by_address(remote_endpoint.address());
 
-    if (thePlayer->isVisible() && buffer.size() != 0)
+    if (thePlayer->isVisible())
     {
         thePlayer->setScreen(buffer);
     }
@@ -181,6 +207,7 @@ void MyUdpConnection::OnError(const boost::system::error_code &error, boost::asi
 {
     std::clog << "[" << __FUNCTION__ << "] " << error << std::endl;
     std::clog << " error on endpoint " << remote_endpoint << std::endl;
+    //boost::this_thread::sleep(boost::posix_time::milliseconds(2000));
 }
 
 void MyUdpConnection::OnTimer(const boost::posix_time::time_duration &delta)

@@ -6,7 +6,7 @@
 #define MAFIA_ROOMSTATE_H
 
 #include <boost/smart_ptr.hpp>
-#include "Room.h"
+#include <map>
 
 class Room;
 class Player;
@@ -36,17 +36,22 @@ public:
         return next;
     }
 
-    bool canSee(boost::shared_ptr<Player> player);
+    void setNext(RoomState *next)
+    {
+        RoomState::next = next;
+    }
 
-    bool isVisible(boost::shared_ptr<Player> player);
+    bool canSee(boost::shared_ptr<const Player> &player) const;
 
-    bool canSpeak(boost::shared_ptr<Player> player);
+    bool isVisible(boost::shared_ptr<const Player> &player) const;
+
+    bool canSpeak(boost::shared_ptr<const Player> &player) const;
 
 
     ~RoomState();
 
 private:
-    RoomState (std::string name, std::string period, std::string videoMask, std::string visibleMask, std::string audioMask);
+    RoomState (std::string const &name, std::string const &period, std::string const &videoMask, std::string const &visibleMask, std::string const &audioMask);
 
 
 public:

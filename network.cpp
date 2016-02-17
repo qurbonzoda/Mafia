@@ -403,17 +403,21 @@ void UdpConnection::HandleRecv(const boost::system::error_code &error, int32_t a
             std::clog << (std::string)"handle_receive: Error parsing incoming message:" + ex.what();
         }
         catch (...) {
-            std::clog << "handle_receive: Unknown error while parsing incoming message";
+            std::clog << "handle_receive: Unknown error while parsing incoming message" << std::endl;
         }
     }
     else
     {
-        std::clog << (std::string)"handle_receive: error: " + error.message() + " while receiving from address " << remote_endpoint;
+        std::clog << (std::string)"handle_receive: error: " + error.message()
+                     + " while receiving from address " << remote_endpoint << std::endl;
         StartError( error, remote_endpoint );
     }
     StartRecv();
 }
-
+/*
+handle_receive: error: Bad file descriptor while receiving from address 192.168.43.165:1010
+handle_receive: error: Bad file descriptor while receiving from address 192.168.43.165:1010
+*/
 void UdpConnection::HandleSend(const boost::system::error_code &error, const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
     if( error || HasError() || m_hive->HasStopped() )
@@ -474,10 +478,12 @@ void UdpConnection::StartError(const boost::system::error_code &error, boost::as
 {
     if( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 0 ) == 0 )
     {
+        /*
         boost::system::error_code ec;
         m_socket.shutdown( boost::asio::ip::udp::socket::shutdown_both, ec );
         m_socket.close( ec );
         m_timer.cancel( ec );
+        */
         OnError( error, remote_endpoint );
     }
 

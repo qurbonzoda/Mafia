@@ -4,13 +4,13 @@
 
 #include "Formatter.h"
 
-std::string Formatter::getStringOf(std::vector<uint8_t> const &message)
+std::string Formatter::stringOf(std::vector<uint8_t> const &message)
 {
     std::string result(message.begin(), message.end());
     return result;
 }
 
-std::vector<uint8_t> Formatter::getVectorOf(std::string const & str)
+std::vector<uint8_t> Formatter::vectorOf(std::string const &str)
 {
     std::vector<uint8_t> result(str.begin(), str.end());
     return result;
@@ -33,14 +33,6 @@ std::vector<std::vector<uint8_t> > Formatter::split(std::vector<uint8_t> const &
         }
     }
     return result;
-}
-
-std::string Formatter::getMessageFormat(size_t command, size_t id)
-{
-    std::string s = " " + std::to_string(command) + " " + std::to_string(id);
-    size_t len = s.length();
-    s = std::to_string(len + std::to_string(len).length()) + s;
-    return s;
 }
 
 std::string Formatter::getMessageFormat(std::string &message)

@@ -50,16 +50,6 @@ boost::shared_ptr<Room> Server::create_new_room_instance()
     return room;
 }
 
-uint32_t Server::getId_by_player(boost::shared_ptr<Player> player)
-{
-    for (auto aPlayer : players)
-    {
-        if (aPlayer.second == player) {
-            return aPlayer.second->getId();
-        }
-    }
-}
-
 boost::shared_ptr<Room> Server::getRoom_by_id(uint32_t id)
 {
     for (auto room : rooms)
@@ -73,12 +63,13 @@ boost::shared_ptr<Room> Server::getRoom_by_id(uint32_t id)
     return nullptr;
 }
 
-void Server::room_erase(boost::shared_ptr<Room> room)
+void Server::delete_room(boost::shared_ptr<Room> room)
 {
     std::clog << __FUNCTION__;
     if (rooms.find(room) == rooms.end())
     {
         std::clog << " FATAL No such room" << std::endl;
+        return;
     }
     rooms.erase(room);
     std::clog << " room deleted" << std::endl;
@@ -106,7 +97,7 @@ boost::shared_ptr<Player> Server::getPlayer_by_connection(boost::shared_ptr<Conn
             return player.second;
         }
     }
-    std::clog << "Connection" << " FATAL No such room Connection" << std::endl;
+    std::clog << "Connection" << " FATAL No such player Connection" << std::endl;
 }
 
 void Server::update_room_info(boost::shared_ptr<Room> room)
@@ -116,8 +107,8 @@ void Server::update_room_info(boost::shared_ptr<Room> room)
     message.setLen(25);
     message.setCommand(Command::Type::ROOM_INFO);
     std::vector< std::vector<uint8_t > >param;
-    param.push_back( Formatter::getVectorOf(std::to_string(room->getId())) );
-    param.push_back( Formatter::getVectorOf(room->getPassword()) );
+    param.push_back(Formatter::vectorOf(std::to_string(room->getId())) );
+    param.push_back(Formatter::vectorOf(room->getPassword()) );
     message.setParams(param);
     for (auto player : room->getPlayers())
     {
@@ -136,7 +127,7 @@ boost::shared_ptr<Player> Server::getPlayer_by_address(const boost::asio::ip::ad
             return player.second;
         }
     }
-    std::clog << address << " FATAL No such player endpoint" << std::endl;
+    std::clog << address << " FATAL No such player address" << std::endl;
 }
 
 void Server::delete_player(boost::shared_ptr<Player> player)
@@ -202,7 +193,7 @@ void Server::add_bots()
 
     boost::shared_ptr<ip::address> address(new ip::address(boost::asio::ip::address::from_string("192.168.2.10")));
 
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < 8; i++)
     {
         auto player = create_new_player_instance();
         boost::shared_ptr< MyConnection > new_connection( new MyConnection( shared_from_this(), getHive() ) );

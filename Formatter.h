@@ -10,18 +10,12 @@
 #include <stdint.h>
 #include <string>
 
-class Formatter
+namespace Formatter
 {
-public:
-    static std::string getStringOf(std::vector<uint8_t> const & message);
-    static std::vector<uint8_t> getVectorOf(std::string const & str);
-    static std::vector<uint8_t> getBytesOf(uint64_t value, size_t size = 8);
-    static uint64_t getValueOf(std::vector<uint8_t> const & bytes);
-    static std::vector<uint8_t> getMessageFormat(uint16_t len, uint8_t command, std::vector<uint8_t> const &message);
-    static std::vector< std::vector<uint8_t> > split(std::vector<uint8_t> const &bytes, uint8_t separator);
-    static std::string getMessageFormat(size_t command, size_t id);
-
-    static std::string getMessageFormat(std::string &message);
+    std::string stringOf(std::vector<uint8_t> const &message);
+    std::vector<uint8_t> vectorOf(std::string const &str);
+    std::vector< std::vector<uint8_t> > split(std::vector<uint8_t> const &bytes, uint8_t separator);
+    std::string getMessageFormat(std::string &message);
 };
 
 

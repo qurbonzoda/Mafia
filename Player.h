@@ -19,12 +19,12 @@ class Player : public boost::enable_shared_from_this<Player>
 public:
     enum Character
     {
-        Moderator, Detective, Doctor, Mafia, Villager, Not_specified
+        Moderator, Detective, Doctor, Mafia, Villager, Dead, Not_specified
     };
     Player(size_t id);
-    Player(boost::shared_ptr< boost::asio::ip::address > address);
+    Player(const boost::shared_ptr< boost::asio::ip::address > &address);
     size_t getId();
-    boost::shared_ptr<boost::asio::ip::address> getAddress();
+    boost::shared_ptr<boost::asio::ip::address> getAddress() const;
     boost::shared_ptr< Room > getRoom();
 
     const Character &getCharacter() const;
@@ -32,21 +32,21 @@ public:
     void setId(size_t id);
 
     void setAddress(const boost::shared_ptr<boost::asio::ip::address> &address);
-    bool setRoom(boost::shared_ptr< Room > room);
+    bool setRoom(const boost::shared_ptr< Room > & room);
     void setLogin(const std::string &login);
     void setPassword(const std::string &password);
     size_t getRoom_position() const;
     void setRoom_position(size_t room_position);
     const boost::shared_ptr<MyConnection> &getConnection() const;
     void setConnection(const boost::shared_ptr<MyConnection> &connection);
-    void setScreen(std::vector<uint8_t> image);
-    std::vector<uint8_t> &getScreen();
+    void setScreen(const std::vector<uint8_t> &image);
+    const std::vector<uint8_t> &getScreen() const;
     //bool isInvisiblitySet() const;
     //void setInvisiblitySet(bool invisiblitySet);
 
-    bool canSee();
-    bool isVisible();
-    bool canSpeak();
+    bool canSee() const;
+    bool isVisible() const;
+    bool canSpeak() const;
 
     ~Player();
 

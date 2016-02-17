@@ -16,12 +16,12 @@ void new_thread_handler(boost::shared_ptr< Hive > hive)
 int main( int argc, char * argv[] )
 {
     boost::shared_ptr< Hive > hive( new Hive() );
-    boost::shared_ptr< Server > server(new Server(hive, "192.168.43.116", 7778 ));
+    boost::shared_ptr< Server > server(new Server(hive, "192.168.43.137", 7777 ));
     server->Start();
 
 
     boost::thread_group threads;
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 2; ++i)
     {
         threads.create_thread( boost::bind(&new_thread_handler, hive) );
     }
