@@ -180,18 +180,18 @@ MyUdpConnection::MyUdpConnection(boost::shared_ptr<Server> server, boost::shared
 
 void MyUdpConnection::OnSend(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
-/*
+
     std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
     std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes sent to " << remote_endpoint << std::endl;
-*/
+
 }
 
 void MyUdpConnection::OnRecv(std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
-/*
+
     std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
     std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes received from " << remote_endpoint << std::endl;
-*/
+
     if (buffer.empty())
         return;
 

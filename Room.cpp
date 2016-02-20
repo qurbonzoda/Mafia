@@ -209,7 +209,37 @@ void Room::HandleTimer(const boost::system::error_code &error)
     if (!error)
     {
         int k = 0;
+        std::vector<uint8_t>cant_see;
         std::vector<uint8_t>datagram;
+
+        std::vector<uint8_t> const *cur_screen;
+
+
+
+        for (auto player : players)
+        {
+            if (player->isVisible())
+            {
+                cur_screen = &m_server->getInvisibilityImage();
+            }
+            else
+            {
+                cur_screen = &player->getScreen();
+            }
+            uint16_t length = cur_screen->size();
+
+            cant_see.push_back((length >> 8));
+            cant_see.push_back((length & 0xff));
+
+            assert((cant_see[cant_see.size() - 2] << 8) + cant_see.back() == length);
+
+            cant_see.push_back(player->getRoom_position());
+
+            assert(cant_see.back() == player->getRoom_position());
+            assert(cant_see.back() < Room::max_players);
+
+            cant_see.insert(cant_see.end(), cur_screen->begin(), cur_screen->end());
+        }
 
         for (auto player : players)
         {
@@ -238,7 +268,7 @@ void Room::HandleTimer(const boost::system::error_code &error)
 
                 datagram.insert(datagram.end(), player->getScreen().begin(), player->getScreen().end());
 
-                if (!player->isBot())
+                //if (!player->isBot())
                     player->setScreenChanged(false);
             }
 /*
@@ -278,7 +308,11 @@ void Room::HandleTimer(const boost::system::error_code &error)
 
         for (auto player : players)
         {
-            if (!datagram.empty())
+            if (!player->canSee())
+            {
+                m_server->getUdp()->Send(cant_see, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
+            }
+            else if (!datagram.empty())
             {
                 m_server->getUdp()->Send(datagram, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
             }
@@ -304,6 +338,19 @@ void Room::goToNextState()
 
     if (state->getNext()->getName() == "Voting")
     {
+        // deleting previous votings;
+        for (RoomState *i = state->getNext(); i != state; ) {
+            if (i->getNext()->getName().find("Voting_against") != std::string::npos)
+            {
+                RoomState *j = i->getNext()->getNext();
+                delete i->getNext();
+                i->setNext(j);
+            }
+            else
+            {
+                i = i->getNext();
+            }
+        }
         RoomState::buildVotingChain(state->getNext(), nominees);
     }
     else if (state->getName().find("Voting_against") != std::string::npos
@@ -383,10 +430,29 @@ void Room::goToNextState()
                 player->setCharacter(Player::Character::Dead);
             }
         }
-
     }
+
+    int mafia_cnt = 0;
+    int villager_cnt = 0;
+    for (auto player : players)
+    {
+        mafia_cnt += (player->getCharacter() == Player::Character::Mafia);
+        villager_cnt += (player->getCharacter() != Player::Character::Mafia)
+                        && (player->getCharacter() != Player::Character::Dead)
+                        && (player->getCharacter() != Player::Character::Moderator);
+    }
+    if (mafia_cnt == 0)
+    {
+        RoomState::buildEndGameChain(state, "Villagers");
+    }
+    if (villager_cnt == 0)
+    {
+        RoomState::buildEndGameChain(state, "Mafia");
+    }
+
     state = state->getNext();
     std::clog << state->getName() << std::endl;
+
     for (auto player : players)
     {
         std::clog << "player #" << std::to_string(player->getRoom_position()) << std::endl;
@@ -404,6 +470,11 @@ void Room::goToNextState()
         {
             player->setScreen(m_server->getInvisibilityImage());
         }
+        if (player->getCharacter() == Player::Character::Dead)
+        {
+            player->setScreen(m_server->getRIPScreen());
+        }
+
     }
     std::clog << std::endl;
 }

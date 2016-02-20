@@ -117,7 +117,7 @@ bool Player::canSee() const
     return room->canSee(shared_from_this());
 }
 
-bool Player::isVisible()const
+bool Player::isVisible() const
 {
     if (character == Character::Not_specified)
     {

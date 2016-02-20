@@ -197,6 +197,7 @@ namespace Command {
     }
     void next(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message)
     {
+        std::clog << "NEXT" << std::endl;
         auto server = connection->getServer();
         auto player = server->getPlayer_by_connection(connection);
         auto room = player->getRoom();
@@ -206,9 +207,14 @@ namespace Command {
         {
             game_info(player->getConnection());
         }
+        if (room->getState()->getName().find("won_the_game") != std::string::npos)
+        {
+            end_game(room);
+        }
     }
     void game_info(boost::shared_ptr<MyConnection> const & connection)
     {
+        std::clog << "GAME_INFO" << std::endl;
         auto server = connection->getServer();
         auto player = server->getPlayer_by_connection(connection);
         auto room = player->getRoom();
@@ -224,6 +230,7 @@ namespace Command {
 
     void select(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message)
     {
+        std::clog << "SELECT" << std::endl;
         auto server = connection->getServer();
         auto player = server->getPlayer_by_connection(connection);
         auto room = player->getRoom();
@@ -245,6 +252,15 @@ namespace Command {
         else if (room->getState()->getName().find("Doctor") != std::string::npos)
         {
             room->curePlayer(target);
+        }
+    }
+
+    void end_game(boost::shared_ptr<Room> const & room)
+    {
+        std::string message = "4 " + std::to_string(Command::END_GAME);
+        for (auto player : room->getPlayers())
+        {
+            sendTo(player->getConnection(), Formatter::vectorOf(message));
         }
     }
 

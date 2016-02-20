@@ -66,6 +66,11 @@ public:
         return botScreen;
     }
 
+    const std::vector<uint8_t> &getRIPScreen() const
+    {
+        return RIPScreen;
+    }
+
 private:
     std::set< boost::shared_ptr<Room> > rooms;
     std::map<size_t, boost::shared_ptr<Player> > players;
@@ -73,6 +78,7 @@ private:
     volatile uint32_t room_id_counter = 0;
     std::vector<uint8_t> invisibilityImage;
     std::vector<uint8_t> botScreen;
+    std::vector<uint8_t> RIPScreen;
     std::string ip_address;
     uint16_t port;
     boost::shared_ptr<Hive> hive;

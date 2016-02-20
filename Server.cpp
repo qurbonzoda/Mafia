@@ -181,6 +181,17 @@ void Server::Start()
     botScreen.resize(imageSize);
     botSource.read((char *) &botScreen[0], botScreen.size());
 
+    // reading RIPScreen
+    std::ifstream RIPSource;
+    RIPSource.open("/home/qurbonzoda/Programming/ClionProjects/Mafia/rip.jpg", std::ios_base::binary);
+
+    RIPSource.seekg(0, RIPSource.end);
+    imageSize = RIPSource.tellg();
+    RIPSource.seekg(0, RIPSource.beg);
+
+    RIPScreen.resize(imageSize);
+    RIPSource.read((char *) &RIPScreen[0], RIPScreen.size());
+
     add_bots();
 }
 
@@ -193,7 +204,7 @@ void Server::add_bots()
 
     boost::shared_ptr<ip::address> address(new ip::address(boost::asio::ip::address::from_string("192.168.2.10")));
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 7; i++)
     {
         auto player = create_new_player_instance();
         boost::shared_ptr< MyConnection > new_connection( new MyConnection( shared_from_this(), getHive() ) );

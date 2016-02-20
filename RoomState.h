@@ -58,6 +58,7 @@ public:
     static RoomState * buildStateChain(boost::shared_ptr<Room> room);
     static void buildVotingChain(RoomState * state, std::map< size_t, size_t > const & nominees);
     static void buildMurderChain(RoomState * state, size_t room_position);
+    static void buildEndGameChain(RoomState * state, std::string winner);
 
     static std::vector< std::string > RoomStateNames;
 

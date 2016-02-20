@@ -77,6 +77,14 @@ void RoomState::buildMurderChain(RoomState * state, size_t room_position)
     state = state->next;
     state->next = tmp;
 }
+void RoomState::buildEndGameChain(RoomState * state, std::string winner)
+{
+    RoomState * tmp = state->next;
+    state->next = new RoomState(winner + "_won_the_game",
+                                "Game_over!", "11111", "11111", "10000");
+    state = state->next;
+    state->next = tmp;
+}
 
 RoomState::RoomState (std::string const &name, std::string const &period, std::string const &videoMask,
                       std::string const &visibleMask, std::string const &audioMask)

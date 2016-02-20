@@ -31,5 +31,6 @@ namespace Command
     void next(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message);
     void game_info(boost::shared_ptr<MyConnection> const & connection);
     void select(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const & message);
+    void end_game(boost::shared_ptr<Room> const & room);
 };
 #endif //MAFIA_COMMAND_H
