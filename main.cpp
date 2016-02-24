@@ -2,7 +2,7 @@
 #include <boost/thread.hpp>
 #include "network.h"
 
-#include "Server.h"
+#include "server.h"
 
 boost::mutex global_stream_lock;
 
@@ -17,7 +17,7 @@ int main( int argc, char * argv[] )
 {
     boost::shared_ptr< Hive > hive( new Hive() );
     boost::shared_ptr< Server > server(new Server(hive, "192.168.43.137", 7777 ));
-    server->Start();
+    server->start();
 
 
     boost::thread_group threads;

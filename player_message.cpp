@@ -2,8 +2,8 @@
 // Created by qurbonzoda on 20.12.15.
 //
 
-#include "PlayerMessage.h"
-#include "Formatter.h"
+#include "player_message.h"
+#include "formatter.h"
 
 PlayerMessage::PlayerMessage(std::vector<uint8_t> const &message)
 {

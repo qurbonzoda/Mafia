@@ -4,12 +4,13 @@
 
 #include <fstream>
 #include <boost/thread.hpp>
-#include "MyNetwork.h"
-#include "Server.h"
-#include "Player.h"
-#include "Formatter.h"
-#include "PlayerMessage.h"
-#include "Command.h"
+#include "my_network.h"
+#include "server.h"
+#include "player.h"
+#include "room.h"
+#include "formatter.h"
+#include "player_message.h"
+#include "command.h"
 
 using namespace boost::asio;
 
@@ -21,11 +22,11 @@ void MyConnection::OnAccept( const std::string & host, uint16_t port )
 
     boost::shared_ptr<ip::address> address(new ip::address(GetSocket().remote_endpoint().address()));
 
-    boost::shared_ptr<Player> this_player = getServer()->get_or_create_player(address);
+    boost::shared_ptr<Player> this_player = getServer()->getOrCreatePlayer(address);
     this_player->setConnection(shared_from_this());
     uint32_t id = this_player->getId();
 
-    std::string message = std::to_string(Command::Type::PLAYER_ID) + " " + std::to_string(id);
+    std::string message = std::to_string(command::Type::PLAYER_ID) + " " + std::to_string(id);
 
     message = Formatter::getMessageFormat(message);
     std::clog << "new player id " << id << std::endl;
@@ -37,13 +38,6 @@ void MyConnection::OnAccept( const std::string & host, uint16_t port )
 void MyConnection::OnSend( const std::vector< uint8_t > & buffer )
 {
     std::clog << "[" << __FUNCTION__ << "] " << std::to_string(buffer.size()) << " bytes" << std::endl;
-/*
-    for( size_t x = 0; x < buffer.size(); ++x )
-    {
-        std::clog << std::hex << std::setfill( '0' ) <<
-        std::setw( 2 ) << (int)buffer[ x ] << " ";
-    }
-    std::clog << std::endl;*/
     std::clog << "buffer = " + Formatter::stringOf(buffer) << std::endl;
 }
 
@@ -90,7 +84,7 @@ void MyConnection::OnRecv( std::vector< uint8_t > & buffer )
         std::clog << "PlayerMessage id = " << playerMessage.getId() << std::endl;
         std::clog << "PlayerMessage command = " << playerMessage.getCommand() << std::endl;
 
-        Command::execute(shared_from_this(), playerMessage);
+        command::execute(shared_from_this(), playerMessage);
 
     }
     catch (...)
@@ -126,8 +120,8 @@ void MyConnection::OnTimer( const boost::posix_time::time_duration & delta )
 void MyConnection::OnError( const boost::system::error_code & error )
 {
     auto server = this->getServer();
-    auto player = server->getPlayer_by_connection(shared_from_this());
-    server->delete_player(player);
+    auto player = server->getPlayerByConnection(shared_from_this());
+    server->deletePlayer(player);
 
     std::clog << "MyConnection::[" << __FUNCTION__ << "] " << error << std::endl;
 }
@@ -181,25 +175,44 @@ MyUdpConnection::MyUdpConnection(boost::shared_ptr<Server> server, boost::shared
 void MyUdpConnection::OnSend(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
 
-    std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
+    //std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
     std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes sent to " << remote_endpoint << std::endl;
+    std::clog << (int)buffer.front() << std::endl;
 
 }
 
 void MyUdpConnection::OnRecv(std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
 
-    std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
+    //std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
     std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes received from " << remote_endpoint << std::endl;
+    std::clog << (int)buffer.back() << std::endl;
 
     if (buffer.empty())
         return;
 
-    auto thePlayer = getServer()->getPlayer_by_address(remote_endpoint.address());
+    auto thePlayer = getServer()->getPlayerByAddress(remote_endpoint.address());
 
-    if (thePlayer->isVisible())
+    if (buffer.back() == 113)
     {
-        thePlayer->setScreen(buffer);
+        buffer.pop_back();
+        if (thePlayer->isVisible())
+        {
+            thePlayer->setScreen(buffer);
+        }
+    }
+    else
+    {
+        buffer.insert(buffer.begin(), 111);
+        std::clog << "Audio mather fucker !!!" << std::endl;
+        auto room = thePlayer->getRoom();
+        for (auto player : room->getPlayers())
+        {
+            if (player != thePlayer)
+            {
+                Send(buffer, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
+            }
+        }
     }
 }
 

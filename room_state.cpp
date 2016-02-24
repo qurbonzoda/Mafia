@@ -2,16 +2,17 @@
 // Created by qurbonzoda on 04.02.16.
 //
 
-#include "RoomState.h"
-#include "Room.h"
-#include "Player.h"
-#include "Server.h"
+#include "room_state.h"
+#include "room.h"
+#include "player.h"
+#include "server.h"
+#include "constants.h"
 
-std::vector< std::string > RoomState::RoomStateNames {"City_wakes_up",  "Speaking_player_", "Finished_speaking_player_","Voting",       "Night",
-                                                      "Mafia_wake_up",  "Mafia_murdered",   "Detective_checking",       "Doctor_curing","Early_morning"};
+std::vector< std::string > RoomState::RoomStateNames {CITY_WAKES_UP, SPEAKING, FINISHED_SPEAKING, VOTING, NIGHT,
+                                                      MAFIA_WAKES_UP, MAFIA_MURDERED, DETECTIVE_CHECKING, DOCTOR_CURING, EARLY_MORNING};
 
-std::vector< std::string > RoomState::RoomStatePeriods {"Day",  "Day",  "Day",  "Voting","Night",
-                                                        "Night","Night","Night","Night", "Day"};
+std::vector< std::string > RoomState::RoomStatePeriods {DAY,  DAY,  DAY,  VOTING,NIGHT,
+                                                        NIGHT,NIGHT,NIGHT,NIGHT, DAY};
 
 //Moderator, Detective, Doctor, Mafia, Villager
 
@@ -30,7 +31,7 @@ RoomState * RoomState::buildStateChain(boost::shared_ptr<Room> room)
                                      RoomStateVideoMasks[0], RoomStateVisibleMasks[0], RoomStateAudioMasks[0]);
     RoomState * cur = head;
 
-    int playersNum = room->getNumber_of_players();
+    int playersNum = room->getNumberOfPlayers();
 
     for (int i = 1; i < playersNum; i++)
     {
@@ -60,8 +61,8 @@ void RoomState::buildVotingChain(RoomState *state, std::map<size_t, size_t> cons
     RoomState * tmp = state->next;
     for (auto nominee : nominees)
     {
-        state->next = new RoomState("Voting_against_player_" + std::to_string(nominee.first),
-                                    "Day", "11111", "11111", "10000");
+        state->next = new RoomState(VOTING_AGAINST + std::to_string(nominee.first),
+                                    DAY, "11111", "11111", "10000");
         state = state->next;
     }
     state->next = tmp;
@@ -69,10 +70,10 @@ void RoomState::buildVotingChain(RoomState *state, std::map<size_t, size_t> cons
 void RoomState::buildMurderChain(RoomState * state, size_t room_position)
 {
     RoomState * tmp = state->next;
-    state->next = new RoomState("Was_murdered_player_" + std::to_string(room_position),
+    state->next = new RoomState(WAS_MURDERED + std::to_string(room_position),
                                 state->getPeriod(), "11111", "11111", "10000");
     state = state->next;
-    state->next = new RoomState("Murdered_player's_speech_" + std::to_string(room_position),
+    state->next = new RoomState(MURDERED_SPEAKS + std::to_string(room_position),
                                 state->getPeriod(), "11111", "11111", "10000");
     state = state->next;
     state->next = tmp;
@@ -81,7 +82,7 @@ void RoomState::buildEndGameChain(RoomState * state, std::string winner)
 {
     RoomState * tmp = state->next;
     state->next = new RoomState(winner + "_won_the_game",
-                                "Game_over!", "11111", "11111", "10000");
+                                GAME_OVER, "11111", "11111", "10000");
     state = state->next;
     state->next = tmp;
 }
@@ -132,7 +133,7 @@ bool RoomState::canSpeak(boost::shared_ptr<const Player> &player) const
     {
         return (audioMask[player->getCharacter()] == '1');
     }
-    return (name.find(std::to_string(player->getRoom_position())) != std::string::npos)
+    return (name.find(std::to_string(player->getRoomPosition())) != std::string::npos)
            || (audioMask[player->getCharacter()] == '1');
 }
 

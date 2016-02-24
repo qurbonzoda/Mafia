@@ -3,7 +3,9 @@ project(Mafia)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
-set(SOURCE_FILES main.cpp network.cpp network.h Player.cpp Player.h Room.cpp Room.h Server.cpp Server.h Formatter.cpp Formatter.h PlayerMessage.cpp PlayerMessage.h Command.cpp Command.h MyNetwork.cpp MyNetwork.h RoomState.cpp RoomState.h)
+set(SOURCE_FILES main.cpp network.cpp network.h player.cpp player.h room.cpp room.h
+        server.cpp server.h formatter.cpp formatter.h player_message.cpp player_message.h
+        command.cpp command.h my_network.cpp my_network.h room_state.cpp room_state.h constants.h)
 add_executable(Mafia ${SOURCE_FILES})
 
 set(Boost_USE_MULTITHREADED ON)

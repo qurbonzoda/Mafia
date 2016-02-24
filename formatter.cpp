@@ -2,7 +2,7 @@
 // Created by qurbonzoda on 19.12.15.
 //
 
-#include "Formatter.h"
+#include "formatter.h"
 
 std::string Formatter::stringOf(std::vector<uint8_t> const &message)
 {

@@ -2,33 +2,33 @@
 // Created by qurbonzoda on 23.11.15.
 //
 
-#include "Player.h"
+#include "player.h"
 #include "network.h"
-#include "Room.h"
+#include "room.h"
 
 
-Player::Player(size_t id) : id(id)
+Player::Player(size_t id) : id_(id)
 {
 }
-Player::Player(const boost::shared_ptr<boost::asio::ip::address> &address) : address(address)
+Player::Player(const boost::shared_ptr<boost::asio::ip::address> &address) : address_(address)
 {
 }
 size_t Player::getId()
 {
-    return id;
+    return id_;
 }
 boost::shared_ptr<boost::asio::ip::address> Player::getAddress() const
 {
-    return address;
+    return address_;
 }
 boost::shared_ptr<Room> Player::getRoom()
 {
-    return room;
+    return room_;
 }
 
 bool Player::setRoom(boost::shared_ptr<Room> const &room)
 {
-    this->room = room;
+    this->room_ = room;
     return false;
 }
 
@@ -44,43 +44,43 @@ void Player::setCharacter(const Character &character)
 
 void Player::setId(size_t id)
 {
-    this->id = id;
+    this->id_ = id;
 }
 
 void Player::setAddress(const boost::shared_ptr<boost::asio::ip::address> &address)
 {
-    this->address = address;
+    this->address_ = address;
 }
 
 
 void Player::setPassword(const std::string &password)
 {
-    this->password = password;
+    this->password_ = password;
 }
 
 void Player::setLogin(const std::string &login)
 {
-    Player::login = login;
+    Player::login_ = login;
 }
 
-size_t Player::getRoom_position() const
+size_t Player::getRoomPosition() const
 {
-    return room_position;
+    return roomPosition_;
 }
 
-void Player::setRoom_position(size_t room_position)
+void Player::setRoomPosition(size_t roomPosition)
 {
-    Player::room_position = room_position;
+    Player::roomPosition_ = roomPosition;
 }
 
 const boost::shared_ptr<MyConnection> &Player::getConnection() const
 {
-    return connection;
+    return connection_;
 }
 
 void Player::setConnection(const boost::shared_ptr<MyConnection> &connection)
 {
-    Player::connection = connection;
+    Player::connection_ = connection;
 }
 
 Player::~Player()
@@ -90,9 +90,9 @@ Player::~Player()
 
 void Player::setScreen(std::vector<uint8_t> const &image)
 {
-    screenChanged = false;
-    screen = image;
-    screenChanged = true;
+    screenChanged_ = false;
+    screen_ = image;
+    screenChanged_ = true;
 /*
     if (!isBot())
         for (auto player : room->getPlayers())
@@ -105,34 +105,34 @@ void Player::setScreen(std::vector<uint8_t> const &image)
 
 const std::vector<uint8_t> &Player::getScreen() const
 {
-    return screen;
+    return screen_;
 }
 
 bool Player::canSee() const
 {
-    if (character == Character:: Not_specified)
+    if (character == Character::NOT_SPECIFIED)
     {
         return true;
     }
-    return room->canSee(shared_from_this());
+    return room_->canSee(shared_from_this());
 }
 
 bool Player::isVisible() const
 {
-    if (character == Character::Not_specified)
+    if (character == Character::NOT_SPECIFIED)
     {
         return true;
     }
-    return room->isVisible(shared_from_this());
+    return room_->isVisible(shared_from_this());
 }
 
 bool Player::canSpeak() const
 {
-    if (character == Not_specified)
+    if (character == NOT_SPECIFIED)
     {
         return true;
     }
-    return room->canSpeak(shared_from_this());
+    return room_->canSpeak(shared_from_this());
 }
 /*
 bool Player::isInvisiblitySet() const
