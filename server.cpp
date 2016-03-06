@@ -83,7 +83,7 @@ void Server::updateRoomList()
     {
         if (player.second->getRoom() == nullptr)
         {
-            command::sendRoomList(player.second->getConnection());
+            command::sendRoomList(player.second);
         }
     }
 }
@@ -101,20 +101,12 @@ boost::shared_ptr<Player> Server::getPlayerByConnection(boost::shared_ptr<Connec
     std::clog << "Connection" << " FATAL No such player Connection" << std::endl;
 }
 
-void Server::updateRoomInfo(boost::shared_ptr<Room> room)
+void Server::updateRoomInfo(boost::shared_ptr<Room> const &room)
 {
     std::clog << "[ " << __FUNCTION__ << " ]" << std::endl;
-    PlayerMessage message;
-    message.setLen(25);
-    message.setCommand(command::Type::ROOM_INFO);
-    std::vector< std::vector<uint8_t > >param;
-    param.push_back(Formatter::vectorOf(std::to_string(room->getId())) );
-    param.push_back(Formatter::vectorOf(room->getPassword()) );
-    message.setParams(param);
     for (auto player : room->getPlayers())
     {
-        message.setId(player->getId());
-        command::sendRoomInformation(player->getConnection(), message);
+        command::sendRoomInformation(player, room, room->getPassword());
     }
 }
 
@@ -133,9 +125,7 @@ boost::shared_ptr<Player> Server::getPlayerByAddress(const boost::asio::ip::addr
 
 void Server::deletePlayer(boost::shared_ptr<Player> player)
 {
-    PlayerMessage message;
-    message.setId(player->getId());
-    command::leaveRoom(player->getConnection(), message);
+    command::leaveRoom(player);
     if (playersById_.find(player->getId()) != playersById_.end()) {
         playersById_.erase(player->getId());
     }
@@ -145,17 +135,17 @@ void Server::deletePlayer(boost::shared_ptr<Player> player)
 void Server::start()
 {
     acceptor_.reset(new MyAcceptor(shared_from_this(), hive_) );
-    acceptor_->Listen(ipAddress_, port_);
+    acceptor_->listen(ipAddress_, port_);
     //acceptor->StartTimer();
 
     boost::shared_ptr< Connection > connection(
             new MyConnection(shared_from_this(), hive_)
     );
-    acceptor_->Accept(connection );
+    acceptor_->accept(connection);
     //connection->StartTimer();
 
     udp_.reset(new MyUdpConnection(shared_from_this(), hive_, ipAddress_, port_));
-    udp_->StartRecv();
+    udp_->startReceive();
     //udp->StartTimer();
 
     // reading invisibility image
@@ -191,13 +181,34 @@ void Server::start()
     RIPScreen_.resize(imageSize);
     RIPSource.read((char *) &RIPScreen_[0], RIPScreen_.size());
 
+    // reading credentials
+    std::ifstream credentialsSource;
+    credentialsSource.open(PATH_TO_CREDENTIALS);
+
+    std::string login;
+    std::string password;
+    std::string credential;
+
+    while (std::getline(credentialsSource, login))
+    {
+        std::getline(credentialsSource, password);
+        std::getline(credentialsSource, credential);
+        credentials[login] = password;
+        std::clog << login << std::endl;
+        std::clog << password << std::endl;
+        std::clog << credential << std::endl;
+        loginList_.push_back(login);
+        passwordList_.push_back(password);
+        credentialList_.push_back(login);
+    }
+
     addBots();
 }
 
 void Server::addBots()
 {
     auto room = createNewRoomInstance();
-    room->setMaximumPlayers(9);
+    room->setMaximumPlayers(10);
     room->setPassword(NO_PASSWORD);
 
 
@@ -208,7 +219,7 @@ void Server::addBots()
             new MyConnection(shared_from_this(), getHive() )
     );
 
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < 8; i++)
     {
         auto player = createNewPlayerInstance();
         player->setConnection(newConnection);
@@ -217,4 +228,83 @@ void Server::addBots()
         room->join(player);
         player->setScreen(botScreen_);
     }
+}
+
+bool Server::isBusyLogin(std::string const &login)
+{
+    return (credentials.find(login) != credentials.end());
+}
+
+
+bool Server::isRegistrated(std::string const &login, std::string const &password)
+{
+    return  (credentials.find(login) != credentials.end()
+             && credentials[login] == password);
+}
+
+void Server::updateCredentialsFile()
+{
+    std::clog << __FUNCTION__ << std::endl;
+    std::ofstream credentialsSource(PATH_TO_CREDENTIALS);
+
+    for (int i = 0; i < loginList_.size(); ++i)
+    {
+        credentialsSource << loginList_[i] << std::endl;
+        credentialsSource << passwordList_[i] << std::endl;
+        credentialsSource << credentialList_[i] << std::endl;
+
+        std::clog << loginList_[i] << std::endl;
+        std::clog << passwordList_[i] << std::endl;
+        std::clog << credentialList_[i] << std::endl;
+    }
+}
+
+void Server::loadPlayer(boost::shared_ptr<Player> player, std::string const &login, std::string const &password)
+{
+    std::clog << __FUNCTION__ << std::endl;
+
+    player->setLogin(login);
+    player->setPassword(password);
+
+    for (int i = 0; i < loginList_.size(); ++i)
+    {
+        if (loginList_[i] == login && passwordList_[i] == password)
+        {
+            std::istringstream iss(credentialList_[i]);
+
+            std::vector< uint8_t > v(credentialList_[i].begin(), credentialList_[i].end());
+
+            auto parts = Formatter::split(v, ' ');
+
+            std::vector<std::string> playerCredential;
+
+            for (auto part : parts)
+            {
+                playerCredential.push_back(Formatter::stringOf(part));
+            }
+
+            player->setCredential(playerCredential);
+        }
+    }
+}
+
+void Server::updatePlayerCredential(boost::shared_ptr<Player> player)
+{
+    for (int i = 0; i < loginList_.size(); ++i)
+    {
+        if (loginList_[i] == player->getLogin() && passwordList_[i] == player->getPassword())
+        {
+            credentialList_[i] = player->getCredentail();
+        }
+    }
+    updateCredentialsFile();
+}
+
+void Server::addPlayerCredential(boost::shared_ptr<Player> player)
+{
+    credentials[player->getLogin()] = player->getPassword();
+    loginList_.push_back(player->getLogin());
+    passwordList_.push_back(player->getPassword());
+    credentialList_.push_back(player->getCredentail());
+    updateCredentialsFile();
 }

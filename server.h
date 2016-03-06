@@ -26,6 +26,7 @@ public:
 
 private:
     boost::shared_ptr<Player> createNewPlayerInstance();
+    void addBots();
 
 public:
     void start();
@@ -34,11 +35,17 @@ public:
     void deleteRoom(boost::shared_ptr<Room> room);
     void deletePlayer(boost::shared_ptr<Player> player);
     void updateRoomList();
-    void updateRoomInfo(boost::shared_ptr<Room> room);
+    void updateRoomInfo(boost::shared_ptr<Room> const &room);
     boost::shared_ptr<Player> getPlayerByConnection(boost::shared_ptr<Connection> connection);
     boost::shared_ptr<Player> getPlayerByAddress(const boost::asio::ip::address &address);
     boost::shared_ptr<Room> createNewRoomInstance();
-    void addBots();
+    bool isBusyLogin(std::string const &login);
+    bool isRegistrated(std::string const &login, std::string const &password);
+    void addPlayerCredential(boost::shared_ptr<Player> player);
+    void updatePlayerCredential(boost::shared_ptr<Player> player);
+    void loadPlayer(boost::shared_ptr<Player> player, std::string const &login, std::string const &password);
+private:
+    void updateCredentialsFile();
 public:
     const boost::shared_ptr<Hive> &getHive() const
     {
@@ -74,11 +81,16 @@ public:
 private:
     std::set< boost::shared_ptr<Room> > rooms_;
     std::map<size_t, boost::shared_ptr<Player> > playersById_;
+    std::map<std::string, std::string> credentials;
+
     volatile uint32_t playerIdCounter_ = 0;
     volatile uint32_t roomIdCounter_ = 0;
     std::vector<uint8_t> invisibilityImage_;
     std::vector<uint8_t> botScreen_;
     std::vector<uint8_t> RIPScreen_;
+    std::vector<std::string> loginList_;
+    std::vector<std::string> passwordList_;
+    std::vector<std::string> credentialList_;
     std::string ipAddress_;
     uint16_t port_;
     boost::shared_ptr<Hive> hive_;

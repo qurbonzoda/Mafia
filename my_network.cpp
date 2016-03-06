@@ -15,33 +15,33 @@
 using namespace boost::asio;
 
 
-void MyConnection::OnAccept( const std::string & host, uint16_t port )
+void MyConnection::onAccept(const std::string &host, uint16_t port)
 {
     std::clog << "[" << __FUNCTION__ << "] " << host << ":" << port << std::endl;
     /// id must be sent
 
-    boost::shared_ptr<ip::address> address(new ip::address(GetSocket().remote_endpoint().address()));
+    boost::shared_ptr<ip::address> address(new ip::address(getSocket().remote_endpoint().address()));
 
-    boost::shared_ptr<Player> this_player = getServer()->getOrCreatePlayer(address);
-    this_player->setConnection(shared_from_this());
-    uint32_t id = this_player->getId();
+    boost::shared_ptr<Player> acceptedPlayer = getServer()->getOrCreatePlayer(address);
+    acceptedPlayer->setConnection(shared_from_this());
+    uint32_t id = acceptedPlayer->getId();
 
     std::string message = std::to_string(command::Type::PLAYER_ID) + " " + std::to_string(id);
 
     message = Formatter::getMessageFormat(message);
     std::clog << "new player id " << id << std::endl;
 
-    Send(Formatter::vectorOf(message));
-    Recv();
+    send(Formatter::vectorOf(message));
+    receive();
 }
 
-void MyConnection::OnSend( const std::vector< uint8_t > & buffer )
+void MyConnection::onSend(const std::vector<uint8_t> &buffer)
 {
     std::clog << "[" << __FUNCTION__ << "] " << std::to_string(buffer.size()) << " bytes" << std::endl;
     std::clog << "buffer = " + Formatter::stringOf(buffer) << std::endl;
 }
 
-void MyConnection::OnRecv( std::vector< uint8_t > & buffer )
+void MyConnection::onReceive(std::vector<uint8_t> &buffer)
 {
     std::clog << "[" << __FUNCTION__ << "] " << std::to_string(buffer.size()) << " bytes" << std::endl;
 
@@ -66,7 +66,7 @@ void MyConnection::OnRecv( std::vector< uint8_t > & buffer )
     if (len > buffer.size())
     {
         carry = buffer;
-        Recv(len - buffer.size());
+        receive(len - buffer.size());
         return;
     }
 
@@ -100,24 +100,24 @@ void MyConnection::OnRecv( std::vector< uint8_t > & buffer )
         {
             buffer = carry;
             carry.clear();
-            OnRecv(buffer);
+            onReceive(buffer);
             return;
         }
     }
 
     // Start the next receive
-    Recv();
+    receive();
 
     // Echo the data back
     //Send( buffer );
 }
 
-void MyConnection::OnTimer( const boost::posix_time::time_duration & delta )
+void MyConnection::onTimer(const boost::posix_time::time_duration &delta)
 {
     std::clog << "MyConnection::[" << __FUNCTION__ << "] " << delta << std::endl;
 }
 
-void MyConnection::OnError( const boost::system::error_code & error )
+void MyConnection::onError(const boost::system::error_code &error)
 {
     auto server = this->getServer();
     auto player = server->getPlayerByConnection(shared_from_this());
@@ -128,7 +128,7 @@ void MyConnection::OnError( const boost::system::error_code & error )
 MyConnection::MyConnection(boost::shared_ptr<Server> server, boost::shared_ptr<Hive> hive)
         : Connection( hive ), server(server)
 {
-    Connection::SetReceiveBufferSize(1000);
+    Connection::setReceiveBufferSize(1000);
 }
 
 
@@ -136,22 +136,22 @@ MyConnection::~MyConnection()
 {
     std::clog << "[" << __FUNCTION__ << "] " <<  std::endl;
 }
-bool MyAcceptor::OnAccept( boost::shared_ptr< Connection > connection, const std::string & host, uint16_t port )
+bool MyAcceptor::onAccept(boost::shared_ptr<Connection> connection, const std::string &host, uint16_t port)
 {
-    boost::shared_ptr< MyConnection > new_connection( new MyConnection( this->getServer(), GetHive() ) );
-    this->Accept( new_connection );
+    boost::shared_ptr< MyConnection > newConnection(new MyConnection(this->getServer(), getHive() ) );
+    this->accept(newConnection);
 
     std::clog << "[" << __FUNCTION__ << "] " << host << ":" << port << std::endl;
 
     return true;
 }
 
-void MyAcceptor::OnTimer( const boost::posix_time::time_duration & delta )
+void MyAcceptor::onTimer(const boost::posix_time::time_duration &delta)
 {
     std::clog << "[MyAccept::" << __FUNCTION__ << "] " << delta << std::endl;
 }
 
-void MyAcceptor::OnError( const boost::system::error_code & error )
+void MyAcceptor::onError(const boost::system::error_code &error)
 {
     std::clog << "MyAcceptor::[" << __FUNCTION__ << "] " << error << std::endl;
 }
@@ -169,29 +169,29 @@ MyAcceptor::~MyAcceptor()
 MyUdpConnection::MyUdpConnection(boost::shared_ptr<Server> server, boost::shared_ptr<Hive> hive,
                                    const std::string &host, uint16_t port) : UdpConnection(hive, host, port), server(server)
 {
-    UdpConnection::SetReceiveBufferSize(100000);
+    UdpConnection::setReceiveBufferSize(100000);
 }
 
-void MyUdpConnection::OnSend(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
+void MyUdpConnection::onSend(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remoteEndpoint)
 {
 
     //std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
-    std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes sent to " << remote_endpoint << std::endl;
+    std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes sent to " << remoteEndpoint << std::endl;
     std::clog << (int)buffer.front() << std::endl;
 
 }
 
-void MyUdpConnection::OnRecv(std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
+void MyUdpConnection::onReceive(std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remoteEndpoint)
 {
 
     //std::clog << "[ " << __FUNCTION__ << " ]" << "thread " << boost::this_thread::get_id() << std::endl;
-    std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes received from " << remote_endpoint << std::endl;
+    std::clog << "[ " << std::to_string((size_t)buffer.size()) << " ] bytes received from " << remoteEndpoint << std::endl;
     std::clog << (int)buffer.back() << std::endl;
 
     if (buffer.empty())
         return;
 
-    auto thePlayer = getServer()->getPlayerByAddress(remote_endpoint.address());
+    auto thePlayer = getServer()->getPlayerByAddress(remoteEndpoint.address());
 
     if (buffer.back() == 113)
     {
@@ -210,20 +210,20 @@ void MyUdpConnection::OnRecv(std::vector<uint8_t> &buffer, boost::asio::ip::udp:
         {
             if (player != thePlayer)
             {
-                Send(buffer, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
+                send(buffer, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
             }
         }
     }
 }
 
-void MyUdpConnection::OnError(const boost::system::error_code &error, boost::asio::ip::udp::endpoint remote_endpoint)
+void MyUdpConnection::onError(const boost::system::error_code &error, boost::asio::ip::udp::endpoint remoteEndpoint)
 {
     std::clog << "[" << __FUNCTION__ << "] " << error << std::endl;
-    std::clog << " error on endpoint " << remote_endpoint << std::endl;
+    std::clog << " error on endpoint " << remoteEndpoint << std::endl;
     //boost::this_thread::sleep(boost::posix_time::milliseconds(2000));
 }
 
-void MyUdpConnection::OnTimer(const boost::posix_time::time_duration &delta)
+void MyUdpConnection::onTimer(const boost::posix_time::time_duration &delta)
 {
     std::clog << "MyUdpConnection::[" << __FUNCTION__ << "] " << delta << std::endl;
 }

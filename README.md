@@ -31,12 +31,5 @@ receive and stream video and audio to players.
 * Client-side
 ...
 
-## Contributors
-
-The project is being developed by second year undergraduates of ITMO University.
-[Abduqodiri Qurbonzoda](https://github.com/qurbonzoda) and [Khayyom Rahmonov](https://github.com/xayom) are coding server part,
-whereas [Nikita Nozhkin](https://github.com/AYaNikita) and [Semyon Ekhmenin](https://github.com/CEMEHEX) are contributing on client part.
-
-
 Please don't judge us too hard. We are newbies who want to grow in this aspect.
 **We welcome any comments and remarks.**

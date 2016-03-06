@@ -12,7 +12,7 @@
 //-----------------------------------------------------------------------------
 
 Hive::Hive()
-        : m_work_ptr( new boost::asio::io_service::work( m_io_service ) ), m_shutdown( 0 )
+        : workPointer_(new boost::asio::io_service::work(ioService_) ), shutdown_(0 )
 {
 }
 
@@ -20,42 +20,42 @@ Hive::~Hive()
 {
 }
 
-boost::asio::io_service & Hive::GetService()
+boost::asio::io_service & Hive::getService()
 {
-    return m_io_service;
+    return ioService_;
 }
 
-bool Hive::HasStopped()
+bool Hive::hasStopped()
 {
-    return ( boost::interprocess::detail::atomic_cas32( &m_shutdown, 1, 1 ) == 1 );
+    return (boost::interprocess::detail::atomic_cas32(&shutdown_, 1, 1 ) == 1 );
 }
 
-void Hive::Poll()
+void Hive::poll()
 {
-    m_io_service.poll();
+    ioService_.poll();
 }
 
-void Hive::Run()
+void Hive::run()
 {
-    m_io_service.run();
+    ioService_.run();
 }
 
-void Hive::Stop()
+void Hive::stop()
 {
-    if( boost::interprocess::detail::atomic_cas32( &m_shutdown, 1, 0 ) == 0 )
+    if(boost::interprocess::detail::atomic_cas32(&shutdown_, 1, 0 ) == 0 )
     {
-        m_work_ptr.reset();
-        m_io_service.run();
-        m_io_service.stop();
+        workPointer_.reset();
+        ioService_.run();
+        ioService_.stop();
     }
 }
 
-void Hive::Reset()
+void Hive::reset()
 {
-    if( boost::interprocess::detail::atomic_cas32( &m_shutdown, 0, 1 ) == 1 )
+    if(boost::interprocess::detail::atomic_cas32(&shutdown_, 0, 1 ) == 1 )
     {
-        m_io_service.reset();
-        m_work_ptr.reset( new boost::asio::io_service::work( m_io_service ) );
+        ioService_.reset();
+        workPointer_.reset(new boost::asio::io_service::work(ioService_) );
     }
 }
 
@@ -63,7 +63,7 @@ void Hive::Reset()
 
 
 Acceptor::Acceptor( boost::shared_ptr< Hive > hive )
-        : m_hive( hive ), m_acceptor( hive->GetService() ), m_io_strand( hive->GetService() ), m_timer( hive->GetService() ), m_timer_interval( 5000 ), m_error_state( 0 )
+        : hive_(hive ), acceptor_(hive->getService() ), ioStrand_(hive->getService() ), timer_(hive->getService() ), timerInterval_(5000 ), errorState_(0 )
 {
 }
 
@@ -71,117 +71,120 @@ Acceptor::~Acceptor()
 {
 }
 
-void Acceptor::StartTimer()
+void Acceptor::startTimer()
 {
-    m_last_time = boost::posix_time::microsec_clock::local_time();
-    m_timer.expires_from_now( boost::posix_time::milliseconds( m_timer_interval ) );
-    m_timer.async_wait( m_io_strand.wrap( boost::bind( &Acceptor::HandleTimer, shared_from_this(), _1 ) ) );
+    lastTime_ = boost::posix_time::microsec_clock::local_time();
+    timer_.expires_from_now(boost::posix_time::milliseconds(timerInterval_) );
+    timer_.async_wait(ioStrand_.wrap(boost::bind(&Acceptor::handleTimer, shared_from_this(), _1) ) );
 }
 
-void Acceptor::StartError( const boost::system::error_code & error )
+void Acceptor::startError(const boost::system::error_code &error)
 {
-    if( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 0 ) == 0 )
+    if(boost::interprocess::detail::atomic_cas32(&errorState_, 1, 0 ) == 0 )
     {
         boost::system::error_code ec;
-        m_acceptor.cancel( ec );
-        m_acceptor.close( ec );
-        m_timer.cancel( ec );
-        OnError( error );
+        acceptor_.cancel(ec );
+        acceptor_.close(ec );
+        timer_.cancel(ec );
+        onError(error);
     }
 }
 
-void Acceptor::DispatchAccept( boost::shared_ptr< Connection > connection )
+void Acceptor::dispatchAccept(boost::shared_ptr<Connection> connection)
 {
-    m_acceptor.async_accept( connection->GetSocket(), connection->GetStrand().wrap( boost::bind( &Acceptor::HandleAccept, shared_from_this(), _1, connection ) ) );
+    acceptor_.async_accept(connection->getSocket(), connection->getStrand().wrap(
+            boost::bind(&Acceptor::handleAccept, shared_from_this(), _1, connection) ) );
 }
 
-void Acceptor::HandleTimer( const boost::system::error_code & error )
+void Acceptor::handleTimer(const boost::system::error_code &error)
 {
-    if( error || HasError() || m_hive->HasStopped() )
+    if(error || hasError() || hive_->hasStopped() )
     {
-        StartError( error );
+        startError(error);
     }
     else
     {
-        OnTimer( boost::posix_time::microsec_clock::local_time() - m_last_time );
-        StartTimer();
+        onTimer(boost::posix_time::microsec_clock::local_time() - lastTime_);
+        startTimer();
     }
 }
 
-void Acceptor::HandleAccept( const boost::system::error_code & error, boost::shared_ptr< Connection > connection )
+void Acceptor::handleAccept(const boost::system::error_code &error, boost::shared_ptr<Connection> connection)
 {
-    if( error || HasError() || m_hive->HasStopped() )
+    if(error || hasError() || hive_->hasStopped() )
     {
-        connection->StartError( error );
+        connection->startError(error);
     }
     else
     {
-        if( connection->GetSocket().is_open() )
+        if(connection->getSocket().is_open() )
         {
             //connection->StartTimer();
-            if( OnAccept( connection, connection->GetSocket().remote_endpoint().address().to_string(), connection->GetSocket().remote_endpoint().port() ) )
+            if(onAccept(connection, connection->getSocket().remote_endpoint().address().to_string(),
+                        connection->getSocket().remote_endpoint().port()) )
             {
-                connection->OnAccept( m_acceptor.local_endpoint().address().to_string(), m_acceptor.local_endpoint().port() );
+                connection->onAccept(acceptor_.local_endpoint().address().to_string(),
+                                     acceptor_.local_endpoint().port());
             }
         }
         else
         {
-            StartError( error );
+            startError(error);
         }
     }
 }
 
-void Acceptor::Stop()
+void Acceptor::stop()
 {
-    m_io_strand.post( boost::bind( &Acceptor::HandleTimer, shared_from_this(), boost::asio::error::connection_reset ) );
+    ioStrand_.post(boost::bind(&Acceptor::handleTimer, shared_from_this(), boost::asio::error::connection_reset) );
 }
 
-void Acceptor::Accept( boost::shared_ptr< Connection > connection )
+void Acceptor::accept(boost::shared_ptr<Connection> connection)
 {
-    m_io_strand.post( boost::bind( &Acceptor::DispatchAccept, shared_from_this(), connection ) );
+    ioStrand_.post(boost::bind(&Acceptor::dispatchAccept, shared_from_this(), connection) );
 }
 
-void Acceptor::Listen( const std::string & host, const uint16_t & port )
+void Acceptor::listen(const std::string &host, const uint16_t &port)
 {
-    boost::asio::ip::tcp::resolver resolver( m_hive->GetService() );
+    boost::asio::ip::tcp::resolver resolver(hive_->getService() );
     boost::asio::ip::tcp::resolver::query query( host, boost::lexical_cast< std::string >( port ) );
     boost::asio::ip::tcp::endpoint endpoint = *resolver.resolve( query );
-    m_acceptor.open( endpoint.protocol() );
-    m_acceptor.set_option( boost::asio::ip::tcp::acceptor::reuse_address( false ) );
-    m_acceptor.bind( endpoint );
-    m_acceptor.listen( boost::asio::socket_base::max_connections );
+    acceptor_.open(endpoint.protocol() );
+    acceptor_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(false ) );
+    acceptor_.bind(endpoint );
+    acceptor_.listen(boost::asio::socket_base::max_connections );
     //StartTimer();
 }
 
-boost::shared_ptr< Hive > Acceptor::GetHive()
+boost::shared_ptr< Hive > Acceptor::getHive()
 {
-    return m_hive;
+    return hive_;
 }
 
-boost::asio::ip::tcp::acceptor & Acceptor::GetAcceptor()
+boost::asio::ip::tcp::acceptor & Acceptor::getAcceptor()
 {
-    return m_acceptor;
+    return acceptor_;
 }
 
-int32_t Acceptor::GetTimerInterval() const
+int32_t Acceptor::getTimerInterval() const
 {
-    return m_timer_interval;
+    return timerInterval_;
 }
 
-void Acceptor::SetTimerInterval( int32_t timer_interval )
+void Acceptor::setTimerInterval(int32_t timer_interval)
 {
-    m_timer_interval = timer_interval;
+    timerInterval_ = timer_interval;
 }
 
-bool Acceptor::HasError()
+bool Acceptor::hasError()
 {
-    return ( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 1 ) == 1 );
+    return (boost::interprocess::detail::atomic_cas32(&errorState_, 1, 1 ) == 1 );
 }
 
 //-----------------------------------------------------------------------------
 
 Connection::Connection( boost::shared_ptr< Hive > hive )
-        : m_hive( hive ), m_socket( hive->GetService() ), m_io_strand( hive->GetService() ), m_timer( hive->GetService() ), m_receive_buffer_size( 4096 ), m_timer_interval( 5000 ), m_error_state( 0 )
+        : hive_(hive ), socket_(hive->getService() ), ioStrand_(hive->getService() ), timer_(hive->getService() ), receiveBufferSize_(4096 ), timerInterval_(5000 ), errorState_(0 )
 {
 
 }
@@ -190,214 +193,220 @@ Connection::~Connection()
 {
 }
 
-void Connection::Bind( const std::string & ip, uint16_t port )
+void Connection::bind(const std::string &ip, uint16_t port)
 {
     boost::asio::ip::tcp::endpoint endpoint( boost::asio::ip::address::from_string( ip ), port );
-    m_socket.open( endpoint.protocol() );
-    m_socket.set_option( boost::asio::ip::tcp::acceptor::reuse_address( false ) );
-    m_socket.bind( endpoint );
+    socket_.open(endpoint.protocol() );
+    socket_.set_option(boost::asio::ip::tcp::acceptor::reuse_address(false ) );
+    socket_.bind(endpoint );
 }
 
-void Connection::StartSend()
+void Connection::startSend()
 {
-    if( !m_pending_sends.empty() )
+    if( !pendingSends_.empty() )
     {
-        boost::asio::async_write( m_socket, boost::asio::buffer( m_pending_sends.front() ),
-                                  m_io_strand.wrap( boost::bind( &Connection::HandleSend, shared_from_this(), boost::asio::placeholders::error, m_pending_sends.begin() ) ) );
+        boost::asio::async_write(socket_, boost::asio::buffer(pendingSends_.front() ),
+                                 ioStrand_.wrap(boost::bind(&Connection::handleSend, shared_from_this(),
+                                                            boost::asio::placeholders::error,
+                                                            pendingSends_.begin()) ) );
     }
 }
 
-void Connection::StartRecv( int32_t total_bytes )
+void Connection::startReceive(int32_t totalBytes)
 {
-    if( total_bytes > 0 )
+    if(totalBytes > 0 )
     {
-        m_recv_buffer.resize( total_bytes );
-        boost::asio::async_read( m_socket, boost::asio::buffer( m_recv_buffer ), m_io_strand.wrap( boost::bind( &Connection::HandleRecv, shared_from_this(), _1, _2 ) ) );
+        receiveBuffer_.resize(totalBytes);
+        boost::asio::async_read(socket_, boost::asio::buffer(receiveBuffer_), ioStrand_.wrap(
+                boost::bind(&Connection::handleReceive, shared_from_this(), _1, _2) ) );
     }
     else
     {
-        m_recv_buffer.resize( m_receive_buffer_size );
-        m_socket.async_read_some( boost::asio::buffer( m_recv_buffer ), m_io_strand.wrap( boost::bind( &Connection::HandleRecv, shared_from_this(), _1, _2 ) ) );
+        receiveBuffer_.resize(receiveBufferSize_);
+        socket_.async_read_some(boost::asio::buffer(receiveBuffer_), ioStrand_.wrap(
+                boost::bind(&Connection::handleReceive, shared_from_this(), _1, _2) ) );
     }
 }
 
-void Connection::StartTimer()
+void Connection::startTimer()
 {
-    m_last_time = boost::posix_time::microsec_clock::local_time();
-    m_timer.expires_from_now( boost::posix_time::milliseconds( m_timer_interval ) );
-    m_timer.async_wait( m_io_strand.wrap( boost::bind( &Connection::DispatchTimer, shared_from_this(), _1 ) ) );
+    lastTime_ = boost::posix_time::microsec_clock::local_time();
+    timer_.expires_from_now(boost::posix_time::milliseconds(timerInterval_) );
+    timer_.async_wait(ioStrand_.wrap(boost::bind(&Connection::dispatchTimer, shared_from_this(), _1) ) );
 }
 
-void Connection::StartError( const boost::system::error_code & error )
+void Connection::startError(const boost::system::error_code &error)
 {
-    if( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 0 ) == 0 )
+    if(boost::interprocess::detail::atomic_cas32(&errorState_, 1, 0 ) == 0 )
     {
         boost::system::error_code ec;
-        m_socket.shutdown( boost::asio::ip::tcp::socket::shutdown_both, ec );
-        m_socket.close( ec );
-        m_timer.cancel( ec );
-        OnError( error );
+        socket_.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec );
+        socket_.close(ec );
+        timer_.cancel(ec );
+        onError(error);
     }
 }
 
-void Connection::HandleSend( const boost::system::error_code & error, std::list< std::vector< uint8_t > >::iterator itr )
+void Connection::handleSend(const boost::system::error_code &error, std::list<std::vector<uint8_t> >::iterator itr)
 {
-    if( error || HasError() || m_hive->HasStopped() )
+    if(error || hasError() || hive_->hasStopped() )
     {
-        StartError( error );
+        startError(error);
     }
     else
     {
-        OnSend( *itr );
-        m_pending_sends.erase( itr );
-        StartSend();
+        onSend(*itr);
+        pendingSends_.erase(itr );
+        startSend();
     }
 }
 
-void Connection::HandleRecv( const boost::system::error_code & error, int32_t actual_bytes )
+void Connection::handleReceive(const boost::system::error_code &error, int32_t actualBytes)
 {
-    if( error || HasError() || m_hive->HasStopped() )
+    if(error || hasError() || hive_->hasStopped() )
     {
-        StartError( error );
+        startError(error);
     }
     else
     {
-        m_recv_buffer.resize( actual_bytes );
-        OnRecv( m_recv_buffer );
-        m_pending_recvs.pop_front();
-        if( !m_pending_recvs.empty() )
+        receiveBuffer_.resize(actualBytes);
+        onReceive(receiveBuffer_);
+        pendingReceives_.pop_front();
+        if( !pendingReceives_.empty() )
         {
-            StartRecv( m_pending_recvs.front() );
+            startReceive(pendingReceives_.front());
         }
     }
 }
 
-void Connection::HandleTimer( const boost::system::error_code & error )
+void Connection::handleTimer(const boost::system::error_code &error)
 {
-    if( error || HasError() || m_hive->HasStopped() )
+    if(error || hasError() || hive_->hasStopped() )
     {
-        StartError( error );
+        startError(error);
     }
     else
     {
-        OnTimer( boost::posix_time::microsec_clock::local_time() - m_last_time );
-        StartTimer();
+        onTimer(boost::posix_time::microsec_clock::local_time() - lastTime_);
+        startTimer();
     }
 }
 
-void Connection::DispatchSend( std::vector< uint8_t > buffer )
+void Connection::dispatchSend(std::vector<uint8_t> buffer)
 {
-    bool should_start_send = m_pending_sends.empty();
-    m_pending_sends.push_back( buffer );
+    bool should_start_send = pendingSends_.empty();
+    pendingSends_.push_back(buffer );
     if( should_start_send )
     {
-        StartSend();
+        startSend();
     }
 }
 
-void Connection::DispatchRecv( int32_t total_bytes )
+void Connection::dispatchReceive(int32_t totalBytes)
 {
-    bool should_start_receive = m_pending_recvs.empty();
-    m_pending_recvs.push_back( total_bytes );
+    bool should_start_receive = pendingReceives_.empty();
+    pendingReceives_.push_back(totalBytes);
     if( should_start_receive )
     {
-        StartRecv( total_bytes );
+        startReceive(totalBytes);
     }
 }
 
-void Connection::DispatchTimer( const boost::system::error_code & error )
+void Connection::dispatchTimer(const boost::system::error_code &error)
 {
-    m_io_strand.post( boost::bind( &Connection::HandleTimer, shared_from_this(), error ) );
+    ioStrand_.post(boost::bind(&Connection::handleTimer, shared_from_this(), error) );
 }
 
-void Connection::Disconnect()
+void Connection::disconnect()
 {
-    m_io_strand.post( boost::bind( &Connection::HandleTimer, shared_from_this(), boost::asio::error::connection_reset ) );
+    ioStrand_.post(boost::bind(&Connection::handleTimer, shared_from_this(), boost::asio::error::connection_reset) );
 }
 
-void Connection::Recv( int32_t total_bytes )
+void Connection::receive(int32_t total_bytes)
 {
-    m_io_strand.post( boost::bind( &Connection::DispatchRecv, shared_from_this(), total_bytes ) );
+    ioStrand_.post(boost::bind(&Connection::dispatchReceive, shared_from_this(), total_bytes) );
 }
 
-void Connection::Send( const std::vector< uint8_t > & buffer )
+void Connection::send(const std::vector<uint8_t> &buffer)
 {
-    m_io_strand.post( boost::bind( &Connection::DispatchSend, shared_from_this(), buffer ) );
+    ioStrand_.post(boost::bind(&Connection::dispatchSend, shared_from_this(), buffer) );
 }
 
-boost::asio::ip::tcp::socket & Connection::GetSocket()
+boost::asio::ip::tcp::socket & Connection::getSocket()
 {
-    return m_socket;
+    return socket_;
 }
 
-boost::asio::strand & Connection::GetStrand()
+boost::asio::strand & Connection::getStrand()
 {
-    return m_io_strand;
+    return ioStrand_;
 }
 
-boost::shared_ptr< Hive > Connection::GetHive()
+boost::shared_ptr< Hive > Connection::getHive()
 {
-    return m_hive;
+    return hive_;
 }
 
-void Connection::SetReceiveBufferSize( int32_t size )
+void Connection::setReceiveBufferSize(int32_t size)
 {
-    m_receive_buffer_size = size;
+    receiveBufferSize_ = size;
 }
 
-int32_t Connection::GetReceiveBufferSize() const
+int32_t Connection::getReceiveBufferSize() const
 {
-    return m_receive_buffer_size;
+    return receiveBufferSize_;
 }
 
-int32_t Connection::GetTimerInterval() const
+int32_t Connection::getTimerInterval() const
 {
-    return m_timer_interval;
+    return timerInterval_;
 }
 
-void Connection::SetTimerInterval( int32_t timer_interval )
+void Connection::setTimerInterval(int32_t timerInterval)
 {
-    m_timer_interval = timer_interval;
+    timerInterval_ = timerInterval;
 }
 
-bool Connection::HasError()
+bool Connection::hasError()
 {
-    return ( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 1 ) == 1 );
+    return (boost::interprocess::detail::atomic_cas32(&errorState_, 1, 1 ) == 1 );
 }
 
 
 //-----------------------------------------------------------------------------
 
-UdpConnection::UdpConnection(boost::shared_ptr<Hive> hive, std::string ip_address, uint16_t port) :
-        m_socket(hive->GetService(), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port)), m_timer(hive->GetService())
+UdpConnection::UdpConnection(boost::shared_ptr<Hive> hive, std::string ipAddress, uint16_t port) :
+        socket_(hive->getService(), boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ipAddress), port)), timer_(
+        hive->getService())
 {
-    m_receive_buffer_size = 200000;
-    m_timer_interval = 5000;
-    m_error_state = 0;
-    server_endpoint = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port);
-    m_hive = hive;
+    receiveBufferSize_ = 200000;
+    timerInterval_ = 5000;
+    errorState_ = 0;
+    serverEndpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ipAddress), port);
+    hive_ = hive;
     //StartTimer();
 }
-void UdpConnection::Bind(std::string const & ip_address, uint16_t port)
+void UdpConnection::bind(std::string const &ipAddress, uint16_t port)
 {
-    server_endpoint = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ip_address), port);
-    m_socket.open( server_endpoint.protocol() );
-    m_socket.bind(server_endpoint);
+    serverEndpoint_ = boost::asio::ip::udp::endpoint(boost::asio::ip::address::from_string(ipAddress), port);
+    socket_.open(serverEndpoint_.protocol() );
+    socket_.bind(serverEndpoint_);
 }
 
-void UdpConnection::StartRecv()
+void UdpConnection::startReceive()
 {
-    m_recv_buffer.resize(m_receive_buffer_size);
-    m_socket.async_receive_from(boost::asio::buffer(m_recv_buffer), remote_endpoint, boost::bind( &UdpConnection::HandleRecv, shared_from_this(), _1, _2));
+    receivedBuffer_.resize(receiveBufferSize_);
+    socket_.async_receive_from(boost::asio::buffer(receivedBuffer_), remoteEndpoint_,
+                               boost::bind(&UdpConnection::handleReceive, shared_from_this(), _1, _2));
 }
 
-void UdpConnection::HandleRecv(const boost::system::error_code &error, int32_t actual_bytes)
+void UdpConnection::handleReceive(const boost::system::error_code &error, int32_t actual_bytes)
 {
     if (!error)
     {
         try {
-            m_recv_buffer.resize( actual_bytes );
-            OnRecv( m_recv_buffer, remote_endpoint );
+            receivedBuffer_.resize(actual_bytes );
+            onReceive(receivedBuffer_, remoteEndpoint_);
         }
         catch (std::exception ex) {
             std::clog << (std::string)"handle_receive: Error parsing incoming message:" + ex.what();
@@ -409,104 +418,101 @@ void UdpConnection::HandleRecv(const boost::system::error_code &error, int32_t a
     else
     {
         std::clog << (std::string)"handle_receive: error: " + error.message()
-                     + " while receiving from address " << remote_endpoint << std::endl;
-        StartError( error, remote_endpoint );
+                     + " while receiving from address " << remoteEndpoint_ << std::endl;
+        startError(error, remoteEndpoint_);
     }
-    StartRecv();
+    startReceive();
 }
 /*
 handle_receive: error: Bad file descriptor while receiving from address 192.168.43.165:1010
 handle_receive: error: Bad file descriptor while receiving from address 192.168.43.165:1010
 */
-void UdpConnection::HandleSend(const boost::system::error_code &error, const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
+void UdpConnection::handleSend(const boost::system::error_code &error, const std::vector<uint8_t> &buffer,
+                               boost::asio::ip::udp::endpoint remote_endpoint)
 {
-    if( error || HasError() || m_hive->HasStopped() )
+    if(error || hasError() || hive_->hasStopped() )
     {
-        StartError( error, remote_endpoint );
+        startError(error, remote_endpoint);
     }
     else
     {
-        OnSend( buffer, remote_endpoint );
+        onSend(buffer, remote_endpoint);
     }
 }
 
-void UdpConnection::Send(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
+void UdpConnection::send(const std::vector<uint8_t> &buffer, boost::asio::ip::udp::endpoint remote_endpoint)
 {
     if (remote_endpoint.address() == boost::asio::ip::address::from_string("192.168.2.10") || buffer.size() < 10)
     {
         return;
     }
-    m_socket.async_send_to(boost::asio::buffer(buffer), remote_endpoint, boost::bind(&UdpConnection::HandleSend, shared_from_this(), boost::asio::placeholders::error, buffer, remote_endpoint));
+    socket_.async_send_to(boost::asio::buffer(buffer), remote_endpoint,
+                          boost::bind(&UdpConnection::handleSend, shared_from_this(), boost::asio::placeholders::error,
+                                      buffer, remote_endpoint));
 }
 
-boost::asio::ip::udp::socket & UdpConnection::GetSocket()
+boost::asio::ip::udp::socket & UdpConnection::getSocket()
 {
-    return m_socket;
+    return socket_;
 }
 
-boost::shared_ptr< Hive > UdpConnection::GetHive()
+boost::shared_ptr< Hive > UdpConnection::getHive()
 {
-    return m_hive;
+    return hive_;
 }
 
-void UdpConnection::SetReceiveBufferSize( int32_t size )
+void UdpConnection::setReceiveBufferSize(int32_t size)
 {
-    m_receive_buffer_size = size;
+    receiveBufferSize_ = size;
 }
 
-int32_t UdpConnection::GetReceiveBufferSize() const
+int32_t UdpConnection::setReceiveBufferSize() const
 {
-    return m_receive_buffer_size;
+    return receiveBufferSize_;
 }
 
-int32_t UdpConnection::GetTimerInterval() const
+int32_t UdpConnection::getTimerInterval() const
 {
-    return m_timer_interval;
+    return timerInterval_;
 }
 
-void UdpConnection::SetTimerInterval( int32_t timer_interval )
+void UdpConnection::setTimerInterval(int32_t timer_interval)
 {
-    m_timer_interval = timer_interval;
+    timerInterval_ = timer_interval;
 }
 
-bool UdpConnection::HasError()
+bool UdpConnection::hasError()
 {
-    return ( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 1 ) == 1 );
+    return (boost::interprocess::detail::atomic_cas32(&errorState_, 1, 1 ) == 1 );
 }
 
-void UdpConnection::StartError(const boost::system::error_code &error, boost::asio::ip::udp::endpoint remote_endpoint)
+void UdpConnection::startError(const boost::system::error_code &error, boost::asio::ip::udp::endpoint remoteEndpoint)
 {
-    if( boost::interprocess::detail::atomic_cas32( &m_error_state, 1, 0 ) == 0 )
+    if(boost::interprocess::detail::atomic_cas32(&errorState_, 1, 0 ) == 0 )
     {
-        /*
-        boost::system::error_code ec;
-        m_socket.shutdown( boost::asio::ip::udp::socket::shutdown_both, ec );
-        m_socket.close( ec );
-        m_timer.cancel( ec );
-        */
-        OnError( error, remote_endpoint );
+        onError(error, remoteEndpoint);
     }
 
 }
 
-void UdpConnection::StartTimer()
+void UdpConnection::startTimer()
 {
-    m_last_time = boost::posix_time::microsec_clock::local_time();
-    m_timer.expires_from_now( boost::posix_time::milliseconds( m_timer_interval ) );
-    m_timer.async_wait( boost::bind(&UdpConnection::HandleTimer, shared_from_this(), _1 ));
+    lastTime_ = boost::posix_time::microsec_clock::local_time();
+    timer_.expires_from_now(boost::posix_time::milliseconds(timerInterval_) );
+    timer_.async_wait(boost::bind(&UdpConnection::handleTimer, shared_from_this(), _1));
 }
 
 
-void UdpConnection::HandleTimer( const boost::system::error_code & error )
+void UdpConnection::handleTimer(const boost::system::error_code &error)
 {
-    if( error || HasError() || m_hive->HasStopped() )
+    if(error || hasError() || hive_->hasStopped() )
     {
 
     }
     else
     {
-        OnTimer( boost::posix_time::microsec_clock::local_time() - m_last_time );
-        StartTimer();
+        onTimer(boost::posix_time::microsec_clock::local_time() - lastTime_);
+        startTimer();
     }
 }
 

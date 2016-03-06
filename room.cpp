@@ -16,13 +16,13 @@
 
 
 Room::Room(uint32_t id, boost::shared_ptr<Server> const &server) : id_(id), positionMask_("00000000000"),
-                                                                   timer_(server->getHive()->GetService()),
+                                                                   timer_(server->getHive()->getService()),
                                                                    server_(server),
-                                                                   timerInterval_(50)
+                                                                   timerInterval_(75)
 {
 }
 
-void Room::join(boost::shared_ptr<Player> &player)
+void Room::join(boost::shared_ptr<Player> const &player)
 {
     // insert player
     players_.insert(player);
@@ -52,7 +52,7 @@ void Room::join(boost::shared_ptr<Player> &player)
     }
 }
 
-void Room::erasePlayer(boost::shared_ptr<Player> &player)
+void Room::erasePlayer(boost::shared_ptr<Player> const &player)
 {
     positionMask_[player->getRoomPosition()] = '0';
     players_.erase(player);
@@ -72,13 +72,13 @@ void Room::handleTimer(const boost::system::error_code &error)
     //std::clog << "Room::[" << __FUNCTION__ << "] " << std::endl;
 
     botCnt_++;
-    if (botCnt_ == players_.size())
+    if (botCnt_ >= players_.size())
     {
         botCnt_ = 0;
     }
     auto playerIterator = players_.begin();
     std::advance(playerIterator, botCnt_);
-    if ((*playerIterator)->isBot())
+    if (botCnt_ < players_.size() && (*playerIterator)->isBot())
     {
         (*playerIterator)->setScreenChanged(true);
     }
@@ -137,14 +137,14 @@ void Room::handleTimer(const boost::system::error_code &error)
         {
             if (!player->canSee())
             {
-                server_->getUdp()->Send(cantSee, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
+                server_->getUdp()->send(cantSee, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
             }
             else if (!datagramm.empty())
             {
-                server_->getUdp()->Send(datagramm, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
+                server_->getUdp()->send(datagramm, boost::asio::ip::udp::endpoint(*(player->getAddress()), 1010));
             }
         }
-        if (getNumberOfPlayers() != 0)
+        if (getNumberOfPlayers() > 0)
         {
             startTimer();
         }
@@ -182,6 +182,10 @@ void Room::goToNextState()
         curedPlayer_ = -1;
         murderedPlayer_ = -1;
     }
+
+    nameOfNextState = state_->getNext()->getName();
+    nameOfCurrentState = state_->getName();
+
     if (nameOfNextState.find(WAS_MURDERED) != std::string::npos)
     {
         beforeAssasiation_ = state_;

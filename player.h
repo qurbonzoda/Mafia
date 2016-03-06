@@ -19,6 +19,19 @@ class Player : public boost::enable_shared_from_this<Player>
 {
 
 public:
+
+    struct Credential
+    {
+        std::string login;
+        std::string password;
+        std::string name;
+        std::string age;
+        std::string email;
+        std::string fbAccount;
+        std::string vkAccount;
+        std::string additional;
+    };
+
     enum Character
     {
         MODERATOR, DETECTIVE, DOCTOR, MAFIA, VILLAGER, DEAD, NOT_SPECIFIED
@@ -32,7 +45,7 @@ public:
 
     boost::shared_ptr<boost::asio::ip::address> getAddress() const;
 
-    boost::shared_ptr<Room> getRoom();
+    boost::shared_ptr<Room> const &getRoom();
 
     const Character &getCharacter() const;
 
@@ -46,13 +59,23 @@ public:
 
     void setLogin(const std::string &login);
 
+    std::string getLogin();
+
     void setPassword(const std::string &password);
+
+    std::string getPassword();
+
+    void setCredential(const std::vector<std::string> &credential);
+
+    std::string getCredentail() const;
 
     size_t getRoomPosition() const;
 
     void setRoomPosition(size_t roomPosition);
 
     const boost::shared_ptr<MyConnection> &getConnection() const;
+
+    const boost::shared_ptr<Server> &getServer() const;
 
     void setConnection(const boost::shared_ptr<MyConnection> &connection);
 
@@ -72,8 +95,7 @@ private:
     Character character = Character::NOT_SPECIFIED;
     size_t id_;
     size_t roomPosition_;
-    std::string password_;
-    std::string login_;
+    Credential credential_;
 
 private:
     boost::shared_ptr<Room> room_;

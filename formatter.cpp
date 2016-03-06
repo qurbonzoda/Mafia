@@ -27,10 +27,7 @@ std::vector<std::vector<uint8_t> > Formatter::split(std::vector<uint8_t> const &
             token.push_back(bytes[i]);
             i++;
         }
-        if (!token.empty())
-        {
-            result.push_back(token);
-        }
+        result.push_back(token);
     }
     return result;
 }

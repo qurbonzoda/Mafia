@@ -3,9 +3,9 @@
 //
 
 #include "player.h"
-#include "network.h"
+#include "my_network.h"
 #include "room.h"
-
+#include "server.h"
 
 Player::Player(size_t id) : id_(id)
 {
@@ -21,13 +21,18 @@ boost::shared_ptr<boost::asio::ip::address> Player::getAddress() const
 {
     return address_;
 }
-boost::shared_ptr<Room> Player::getRoom()
+boost::shared_ptr<Room> const &Player::getRoom()
 {
     return room_;
 }
 
 bool Player::setRoom(boost::shared_ptr<Room> const &room)
 {
+    if (room == nullptr)
+    {
+        character = Character::NOT_SPECIFIED;
+        roomPosition_ = 0;
+    }
     this->room_ = room;
     return false;
 }
@@ -55,12 +60,22 @@ void Player::setAddress(const boost::shared_ptr<boost::asio::ip::address> &addre
 
 void Player::setPassword(const std::string &password)
 {
-    this->password_ = password;
+    credential_.password = password;
+}
+
+std::string Player::getPassword()
+{
+    return credential_.password;
 }
 
 void Player::setLogin(const std::string &login)
 {
-    Player::login_ = login;
+    credential_.login = login;
+}
+
+std::string Player::getLogin()
+{
+    return credential_.login;
 }
 
 size_t Player::getRoomPosition() const
@@ -78,6 +93,11 @@ const boost::shared_ptr<MyConnection> &Player::getConnection() const
     return connection_;
 }
 
+const boost::shared_ptr<Server> &Player::getServer() const
+{
+    return connection_->getServer();
+}
+
 void Player::setConnection(const boost::shared_ptr<MyConnection> &connection)
 {
     Player::connection_ = connection;
@@ -93,14 +113,6 @@ void Player::setScreen(std::vector<uint8_t> const &image)
     screenChanged_ = false;
     screen_ = image;
     screenChanged_ = true;
-/*
-    if (!isBot())
-        for (auto player : room->getPlayers())
-        {
-            if (player->isBot())
-                player->setScreenChanged(true);
-        }
-*/
 }
 
 const std::vector<uint8_t> &Player::getScreen() const
@@ -128,21 +140,48 @@ bool Player::isVisible() const
 
 bool Player::canSpeak() const
 {
-    if (character == NOT_SPECIFIED)
+    if (character == Character::NOT_SPECIFIED)
     {
         return true;
     }
     return room_->canSpeak(shared_from_this());
 }
-/*
-bool Player::isInvisiblitySet() const
+
+void Player::setCredential(const std::vector<std::string> &credential)
 {
-    return Player::invisiblitySet;
+    std::clog << __FUNCTION__ << std::endl;
+    std::clog << std::to_string(credential.size()) << std::endl;
+
+    for (auto item : credential)
+    {
+        std::clog << item << std::endl;
+    }
+
+    // assert(credential.size() >= 6);
+    switch (credential.size())
+    {
+        case 6:
+            credential_.additional = (credential[5] != "#" ? credential[5] : "");
+        case 5:
+            credential_.vkAccount = (credential[4] != "#" ? credential[4] : "");
+        case 4:
+            credential_.fbAccount = (credential[3] != "#" ? credential[3] : "");
+        case 3:
+            credential_.email = (credential[2] != "#" ? credential[2] : "");
+        case 2:
+            credential_.age = (credential[1] != "#" ? credential[1] : "");
+        case 1:
+            credential_.name = (credential[0] != "#" ? credential[0] : "");
+
+    }
+
+    getServer()->updatePlayerCredential(shared_from_this());
 }
 
-void Player::setInvisiblitySet(bool invisiblitySet)
+std::string Player::getCredentail() const
 {
-    Player::invisiblitySet = invisiblitySet;
-
+    std::string answer = credential_.name + " " + credential_.age
+                         + " " + credential_.email + " " + credential_.fbAccount
+                         + " " + credential_.vkAccount + " " + credential_.additional;
+    return answer;
 }
-*/

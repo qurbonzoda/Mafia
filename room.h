@@ -92,9 +92,9 @@ public:
 
     Room(uint32_t id, boost::shared_ptr<Server> const &server);
 
-    void join(boost::shared_ptr<Player> &player);
+    void join(boost::shared_ptr<Player> const &player);
 
-    void erasePlayer(boost::shared_ptr<Player> &player);
+    void erasePlayer(boost::shared_ptr<Player> const &player);
 
     void goToNextState();
 

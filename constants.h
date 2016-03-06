@@ -27,6 +27,7 @@ const std::string GAME_OVER = "Game_over!";
 const std::string PATH_TO_BOT_SCREEN = "/home/qurbonzoda/Programming/ClionProjects/Mafia/bot.jpg";
 const std::string PATH_TO_INVISIBILITY_SCREEN = "/home/qurbonzoda/Programming/ClionProjects/Mafia/invisibility.jpg";
 const std::string PATH_TO_RIP_SCREEN = "/home/qurbonzoda/Programming/ClionProjects/Mafia/rip.jpg";
+const std::string PATH_TO_CREDENTIALS = "/home/qurbonzoda/Programming/ClionProjects/Mafia/credentials/credentials";
 
 const std::string NO_PASSWORD = "nopass";
 

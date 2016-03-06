@@ -12,77 +12,176 @@
 #include "room_state.h"
 #include "constants.h"
 
+using boost::shared_ptr;
+
 namespace command {
 
-    void execute(boost::shared_ptr<MyConnection> const & connection, PlayerMessage const &message)
+    void execute(boost::shared_ptr<MyConnection> const &connection, PlayerMessage const &message)
     {
         std::clog << "request from player " << message.getId() << " command " << message.getCommand() << std::endl;
-        uint32_t sender_id = message.getId();
+        uint32_t senderId = message.getId();
+        std::vector< std::string > messageParameters;
+        for (auto param : message.getParams())
+        {
+            messageParameters.push_back(Formatter::stringOf(param));
+        }
+        shared_ptr<Server> server = connection->getServer();
+        shared_ptr<Player> player = server->getPlayerById(senderId);
+
         switch (message.getCommand())
         {
             case AUTHORISATION:
-                authorizePlayer(connection, message);
+            {
+                std::string login = messageParameters[0];
+                std::string password = messageParameters[1];
+
+                authorizePlayer(player, login, password);
                 break;
+            }
+            case REGISTRATION:
+            {
+                std::string login = messageParameters[0];
+                std::string password = messageParameters[1];
+
+                registerPlayer(player, login, password);
+                break;
+            }
             case NEW_ROOM:
-                createNewRoom(connection, message);
+            {
+                size_t maxPlayers = std::stoul(messageParameters[0]);
+                std::string password = messageParameters[1];
+
+                createNewRoom(player, maxPlayers, password);
                 break;
+            }
             case ROOMS_LIST:
-                sendRoomList(connection);
+            {
+                sendRoomList(player);
                 break;
+            }
             case ENTER_ROOM:
-                enterRoom(connection, message);
+            {
+                size_t roomId = std::stoul(messageParameters[0]);
+                shared_ptr<Room> room = server->getRoomById(roomId);
+                std::string password = messageParameters[1];
+
+                enterRoom(player, room, password);
                 break;
+            }
             case ROOM_INFO:
-                sendRoomInformation(connection, message);
+            {
+                size_t roomId = std::stoul(messageParameters[0]);
+                shared_ptr<Room> room = server->getRoomById(roomId);
+                std::string password = messageParameters[1];
+
+                sendRoomInformation(player, room, password);
                 break;
+            }
             case LEAVE_ROOM:
-                leaveRoom(connection, message);
+            {
+                leaveRoom(player);
                 break;
+            }
             case NEXT:
-                changeRoomState(connection, message);
+            {
+                changeRoomState(player->getRoom());
                 break;
+            }
             case SELECT:
-                handleSelectedTarget(connection, message);
+            {
+                shared_ptr<Room> room = player->getRoom();
+                size_t target = std::stoul(messageParameters[0]);
+
+                handleSelectedTarget(room, target);
                 break;
+            }
+            case CHAT_SEND:
+            {
+                sendToRoommates(player, messageParameters[0]);
+                break;
+            }
+            case GET_SETTINGS:
+            {
+                sendCredentials(player);
+                break;
+            }
+            case SAVE_SETTINGS:
+            {
+                saveCredentials(player, messageParameters);
+                break;
+            }
             default:
                 break;
         }
     }
 
-    void authorizePlayer(boost::shared_ptr<MyConnection> const &connection, PlayerMessage const &message)
+    void saveCredentials(shared_ptr<Player> const &player, std::vector< std::string > const &credential)
     {
-        std::clog << "AUTHORIZATION" << std::endl;
-        boost::shared_ptr<Player> player = connection->getServer()->getPlayerById(message.getId());
-        player->setLogin(Formatter::stringOf(message.getParams()[0]));
-        player->setPassword(Formatter::stringOf(message.getParams()[1]));
-        sendRoomList(connection);
+        player->setCredential(credential);
     }
 
-    void createNewRoom(boost::shared_ptr<MyConnection> const &connection, PlayerMessage const &message)
+    void sendCredentials(shared_ptr<Player> const &player)
+    {
+        std::string message = std::to_string(OUT_SETTINGS) + " " + player->getCredentail();
+        sendTo(player->getConnection(), message);
+    }
+
+    void authorizePlayer(shared_ptr <Player> const &player, std::string const &login, std::string const &password)
+    {
+        std::clog << "AUTHORIZATION" << std::endl;
+
+        shared_ptr<Server> server = player->getServer();
+        if (!(login == "guest" && password == "guest"))
+        {
+            if (!server->isRegistrated(login, password))
+            {
+                std::string message = std::to_string(FAILED) + " " + std::to_string(ErrorCode::WRONG_PASSWORD);
+                sendTo(player->getConnection(), message);
+                return;
+            }
+        }
+
+        server->loadPlayer(player, login, password);
+        sendRoomList(player);
+    }
+
+    void registerPlayer(shared_ptr <Player> const &player, std::string const &login, std::string const &password)
+    {
+        std::clog << "REGISTRATION" << std::endl;
+        shared_ptr<Server> server = player->getServer();
+        if (server->isBusyLogin(login) || login == "guest")
+        {
+            std::string message = std::to_string(FAILED) + " " + std::to_string(ErrorCode::LOGIN_IS_BUSY);
+            sendTo(player->getConnection(), message);
+            return;
+        }
+
+        player->setLogin(login);
+        player->setPassword(password);
+        server->addPlayerCredential(player);
+        sendRoomList(player);
+    }
+
+    void createNewRoom(boost::shared_ptr<Player> const &player, size_t maxPlayers, std::string const &password)
     {
         std::clog << "NEW_ROOM" << std::endl;
-        auto server = connection->getServer();
-        boost::shared_ptr<Player> player = server->getPlayerById(message.getId());
-        boost::shared_ptr<Room> room = server->createNewRoomInstance();
+        shared_ptr<Server> server = player->getServer();
+        shared_ptr<Room> room = server->createNewRoomInstance();
 
-        //std::clog << "room use_count := " + std::to_string(room.use_count()) << std::endl;
-        room->setMaximumPlayers(std::stoi(Formatter::stringOf(message.getParams()[0])));
+        room->setMaximumPlayers(maxPlayers);
+        room->setPassword(password);
+
         std::clog << (std::string)"maxPlayers in new room " + std::to_string(room->getId())
                      + " is " + std::to_string(room->getMaximumPlayers()) << std::endl;
 
-        room->setPassword(Formatter::stringOf(message.getParams()[1]));
-        PlayerMessage copy_message(message);
-        copy_message.setParam(0, Formatter::vectorOf(std::to_string(room->getId())));
-
-        std::clog << std::to_string(room->getId()) + " == " + Formatter::stringOf(copy_message.getParams()[0]) << std::endl;
-
-        enterRoom(connection, copy_message);
+        enterRoom(player, room, password);
     }
 
-    void sendRoomList(boost::shared_ptr<MyConnection> const &connection)
+    void sendRoomList(shared_ptr<Player> const &player)
     {
         std::clog << "ROOM_LIST" << std::endl;
-        auto rooms = connection->getServer()->getRooms();
+        auto rooms = player->getServer()->getRooms();
+
         std::string answer = std::to_string(command::Type::ROOMS_LIST) + " " + std::to_string(rooms.size());
         for (auto room : rooms)
         {
@@ -90,74 +189,64 @@ namespace command {
                       + std::to_string(room->getNumberOfPlayers())
                       + " " + std::to_string(room->getMaximumPlayers()) + " " + std::to_string(room->getId());
         }
-        answer = Formatter::getMessageFormat(answer);
-        sendTo(connection, Formatter::vectorOf(answer));
+
+        sendTo(player->getConnection(), answer);
     }
 
-    void enterRoom(boost::shared_ptr<MyConnection> const &connection, PlayerMessage const &message)
+    void enterRoom(boost::shared_ptr<Player> const &player, boost::shared_ptr<Room> const &room, std::string const &password)
     {
         std::clog << "ENTER_ROOM" << std::endl;
-        boost::shared_ptr<Server> server = connection->getServer();
-        uint32_t room_id = std::stoi(Formatter::stringOf(message.getParams()[0]));
-        std::string room_password = Formatter::stringOf(message.getParams()[1]);
-        boost::shared_ptr<Room> room = server->getRoomById(room_id);
+        shared_ptr<Server> server = player->getServer();
 
         if (room == nullptr) { return; };
 
         if (room->getStatus() == Room::Status::PLAYING)
         {
-            sendRoomInformation(connection, message);
+            sendRoomInformation(player, room, password);
             return;
         }
 
-        if (room->getPassword() == room_password || !room->isSafe())
+        if (room->getPassword() == password || !room->isSafe())
         {
-            room->join(server->getPlayerById(message.getId()));
+            room->join(player);
         }
         server->updateRoomInfo(room);
         server->updateRoomList();
 
     }
-    void sendRoomInformation(boost::shared_ptr<MyConnection> const &connection, PlayerMessage const &message)
+    void sendRoomInformation(boost::shared_ptr<Player> const &player, boost::shared_ptr<Room> const &room,
+                                 std::string const &password)
     {
         std::clog << "ROOM_INFO" << std::endl;
-        boost::shared_ptr<Server> server = connection->getServer();
-        uint32_t room_id = std::stoi(Formatter::stringOf(message.getParams()[0]));
-        std::string room_password = Formatter::stringOf(message.getParams()[1]);
-        auto room = server->getRoomById(room_id);
-        auto player = server->getPlayerById(message.getId());
+        shared_ptr<Server> server = player->getServer();
 
         //std::clog << "room use_count := " + std::to_string(room.use_count()) << std::endl;
 
         bool success = (room->getPlayers().find(player) != room->getPlayers().end())
-                       && (room->getPassword() == room_password || !room->isSafe());
-
-        std::clog << "room_id = "<< room_id << " room_password = " << room_password << " player_id = " << message.getId() << std::endl;
+                       && (room->getPassword() == password || !room->isSafe());
 
         std::string answer = std::to_string(command::Type::ROOM_INFO) + " " + std::to_string(success) + " "
                              + std::to_string(room->getNumberOfPlayers()) + " "
                              + std::to_string(player->getRoomPosition()) + " "
-                             + std::to_string(room_id) + " " + room->getPositionMask();
+                             + std::to_string(room->getId()) + " " + room->getPositionMask();
 
-        answer = Formatter::getMessageFormat(answer);
-        sendTo(connection, Formatter::vectorOf(answer));
+        sendTo(player->getConnection(), answer);
         //std::clog << "room use_count := " + std::to_string(room.use_count()) << std::endl;
     }
-    void leaveRoom(boost::shared_ptr<MyConnection> const &connection, PlayerMessage const &message)
+    void leaveRoom(boost::shared_ptr<Player> const &player)
     {
         std::clog << "LEAVE_ROOM" << std::endl;
-        auto server = connection->getServer();
-        auto player = server->getPlayerById(message.getId());
+        auto server = player->getServer();
         auto room = player->getRoom();
         if (room == nullptr)
         {
             std::clog << "FATAL: Leaving nullptr room" << std::endl;
             return;
         }
-        //std::clog << "room use_count before erasing player := " + std::to_string(room.use_count()) << std::endl;
+
         room->erasePlayer(player);
         player->setRoom(nullptr);
-        //std::clog << "room use_count after erasing player := " + std::to_string(room.use_count()) << std::endl;
+
         if (room->getNumberOfPlayers() == 0)
         {
             server->deleteRoom(room);
@@ -171,7 +260,7 @@ namespace command {
         std::clog << "LEAVED_ROOM SUCCESS" << std::endl;
         //std::clog << "room use_count := " + std::to_string(room.use_count()) << std::endl;
     }
-    void startGame(boost::shared_ptr<Room> const &room)
+    void startGame(shared_ptr<Room> const &room)
     {
         std::clog << "StarT Game" << std::endl;
         for (auto player :room->getPlayers())
@@ -180,31 +269,26 @@ namespace command {
                                  + " " + std::to_string(player->getCharacter())
                                  + " " + std::to_string(player->getRoomPosition());
 
-            answer = Formatter::getMessageFormat(answer);
-            sendTo(player->getConnection(), Formatter::vectorOf(answer));
+            sendTo(player->getConnection(), answer);
 
             answer = std::to_string(command::Type::START_SPEAKING) + " 0";
-            answer = Formatter::getMessageFormat(answer);
-            sendTo(player->getConnection(), Formatter::vectorOf(answer));
+            sendTo(player->getConnection(), answer);
 
-            sendGameInformation(player->getConnection());
+            sendRoomStateInformation(player);
         }
         auto server = room->getServer();
         server->updateRoomList();
     }
-    void changeRoomState(boost::shared_ptr<MyConnection> const &connection, PlayerMessage const &message)
+    void changeRoomState(boost::shared_ptr<Room> const &room)
     {
         std::clog << "NEXT" << std::endl;
-        auto server = connection->getServer();
-        auto moderator = server->getPlayerByConnection(connection);
-        auto room = moderator->getRoom();
 
         std::string prevStateName = room->getState()->getName();
 
         room->goToNextState();
         for (auto player : room->getPlayers())
         {
-            sendGameInformation(player->getConnection());
+            sendRoomStateInformation(player);
         }
         if (room->getState()->getName().find("won_the_game") != std::string::npos)
         {
@@ -247,18 +331,16 @@ namespace command {
         }
         if (!first_message.empty())
         {
-            std::string answer = Formatter::getMessageFormat(first_message) + Formatter::getMessageFormat(second_message);
             for (auto player : room->getPlayers())
             {
-                command::sendTo(player->getConnection(), Formatter::vectorOf(answer));
+                command::sendTo(player->getConnection(), first_message);
+                command::sendTo(player->getConnection(), second_message);
             }
         }
     }
-    void sendGameInformation(boost::shared_ptr<MyConnection> const &connection)
+    void sendRoomStateInformation(boost::shared_ptr<Player> const &player)
     {
         std::clog << "GAME_INFO" << std::endl;
-        auto server = connection->getServer();
-        auto player = server->getPlayerByConnection(connection);
         auto room = player->getRoom();
 
         std::string answer = std::to_string(Type::GAME_INFO)
@@ -266,18 +348,12 @@ namespace command {
                              + " " + room->getState()->getName()
                              + " " + room->getState()->getNext()->getName();
 
-        answer = Formatter::getMessageFormat(answer);
-        sendTo(player->getConnection(), Formatter::vectorOf(answer));
+        sendTo(player->getConnection(), answer);
     }
 
-    void handleSelectedTarget(boost::shared_ptr<MyConnection> const &connection, PlayerMessage const &message)
+    void handleSelectedTarget(boost::shared_ptr<Room> const &room, size_t target)
     {
         std::clog << "SELECT" << std::endl;
-        auto server = connection->getServer();
-        auto player = server->getPlayerByConnection(connection);
-        auto room = player->getRoom();
-
-        size_t target = std::stoi(Formatter::stringOf(message.getParams()[0]));
 
         if (room->getState()->getName().find(RoomState::RoomStateNames[2]) != std::string::npos)
         {
@@ -297,20 +373,37 @@ namespace command {
         }
     }
 
-    void endGame(boost::shared_ptr<Room> const &room)
+    void endGame(shared_ptr<Room> const &room)
     {
-        std::string message = "4 " + std::to_string(command::END_GAME);
+        std::string message = std::to_string(command::END_GAME);
         for (auto player : room->getPlayers())
         {
-            sendTo(player->getConnection(), Formatter::vectorOf(message));
+            sendTo(player->getConnection(), message);
         }
     }
 
-    bool sendTo(boost::shared_ptr<MyConnection> const & connection, std::vector<uint8_t> const & buffer)
+    bool sendToRoommates(boost::shared_ptr<Player> const &player, const std::string &quote)
     {
+        std::clog << "CHAT_sendTo" << std::endl;
+
+        std::string message = std::to_string(command::CHAT_MESSAGE)
+                              + " " + std::to_string(player->getRoomPosition())
+                              + " " + quote;
+
+        shared_ptr<Room> room = player->getRoom();
+
+        for (auto addressee : room->getPlayers())
+        {
+            sendTo(addressee->getConnection(), message);
+        }
+    }
+
+    bool sendTo(shared_ptr<MyConnection> const &connection, std::string message)
+    {
+        std::vector<uint8_t> buffer = Formatter::vectorOf(Formatter::getMessageFormat(message));
         if (!(connection->getServer()->getPlayerByConnection(connection)->isBot()))
         {
-            connection->Send(buffer);
+            connection->send(buffer);
         }
     }
 }
